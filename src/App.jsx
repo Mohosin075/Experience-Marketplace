@@ -818,7 +818,7 @@ export default function App() {
               >
                 {profileName.split(' ').map(n => n[0]).join('')}
               </div>
-              <span className="text-xs font-bold text-white" style={{ display: 'inline-block' }}>{profileName}</span>
+              <span className="text-xs font-bold text-white hidden-mobile" style={{ display: 'inline-block' }}>{profileName}</span>
             </button>
 
             {showProfileDropdown && (
