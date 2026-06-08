@@ -879,6 +879,18 @@ export default function App() {
                     <Shield size={14} className="text-purple" /> Password & Security
                   </button>
 
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      setActiveRole('customer');
+                      setActiveCustomerSubTab('my-bookings');
+                    }}
+                    className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    <CalendarCheck size={14} className="text-lime" /> My Bookings & Tickets
+                  </button>
+
                   <div className="border-t-line my-2" />
 
                   <button 
