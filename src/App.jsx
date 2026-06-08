@@ -143,6 +143,7 @@ export default function App() {
   // --- STATE ---
   const [activeRole, setActiveRole] = useState('customer'); // 'customer' | 'host' | 'admin'
   const [activeCustomerSubTab, setActiveCustomerSubTab] = useState('explore'); // 'explore' | 'my-bookings'
+  const [comingSoonFeature, setComingSoonFeature] = useState(null);
   const [experiences, setExperiences] = useState(INITIAL_EXPERIENCES);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -372,6 +373,18 @@ export default function App() {
     addNotification(`Maintenance Cleared: Bike #${scheduled.bikeId} returned to service for ${scheduled.date}`, "system");
   };
 
+  const handleAddBike = () => {
+    const newBikeId = totalBikes + 1;
+    setTotalBikes(prev => prev + 1);
+    addNotification(`Admin added Bike #${newBikeId} to the pool. Total: ${totalBikes + 1}`, "system");
+  };
+
+  const handleRemoveBike = () => {
+    if (totalBikes <= 1) return;
+    setTotalBikes(prev => prev - 1);
+    addNotification(`Admin removed Bike #${totalBikes} from the pool. Total: ${totalBikes - 1}`, "system");
+  };
+
   // --- STATS AND ANALYTICS ---
   const stats = useMemo(() => {
     let totalRevenue = 0;
@@ -555,6 +568,46 @@ export default function App() {
         </div>
       )}
 
+      {/* --- COMING SOON MODAL --- */}
+      {comingSoonFeature && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3 className="text-base font-bold text-white">Coming Soon</h3>
+              <button 
+                onClick={() => setComingSoonFeature(null)}
+                className="text-gray-400 hover-opacity cursor-pointer"
+                style={{ background: 'transparent', border: 'none' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body text-center" style={{ padding: '24px' }}>
+              <div className="flex items-center justify-center rounded-circle" style={{ 
+                width: '48px', 
+                height: '48px', 
+                backgroundColor: 'rgba(255, 90, 0, 0.12)', 
+                color: 'var(--color-orange)', 
+                margin: '0 auto 16px' 
+              }}>
+                <Sparkles size={24} />
+              </div>
+              <h4 className="text-sm font-bold text-white mb-2">{comingSoonFeature}</h4>
+              <p className="text-xs text-gray-400" style={{ lineHeight: '1.6' }}>
+                This section is currently under development. You can book custom Tourbi e-bike experiences now!
+              </p>
+              <button 
+                onClick={() => setComingSoonFeature(null)}
+                className="btn-primary-orange w-full mt-6 py-2 text-xs"
+              >
+                GOT IT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="header-wrapper flex items-center justify-between">
         <div className="flex items-center gap-6">
@@ -567,9 +620,9 @@ export default function App() {
           </div>
 
           <nav className="flex items-center gap-4 text-xs font-bold" style={{ marginLeft: '16px' }}>
-            <span className="text-gray-300 hover-opacity cursor-pointer">RENT</span>
-            <span className="text-gray-300 hover-opacity cursor-pointer">SHOP</span>
-            <span className="text-gray-300 hover-opacity cursor-pointer">REPAIRS</span>
+            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Direct E-Bike Rentals')}>RENT</span>
+            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Online E-Bike & Merch Store')}>SHOP</span>
+            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Certified Repairs & Servicing')}>REPAIRS</span>
           </nav>
         </div>
 
