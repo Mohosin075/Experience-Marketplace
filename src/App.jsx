@@ -24,7 +24,11 @@ import {
   Compass,
   Heart,
   Calendar,
-  X
+  X,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
+  CalendarCheck
 } from 'lucide-react';
 
 // --- MOCK INITIAL DATA ---
@@ -128,18 +132,26 @@ const INITIAL_NOTIFICATIONS = [
   { id: 3, text: "Maintenance Alert: Bike #12 marked as 'Under Maintenance'.", time: "45 mins ago", type: "system", read: false }
 ];
 
+// Mock Maintenance Schedule by Date
+const INITIAL_MAINTENANCE = [
+  { id: 1, bikeId: 5, date: "2026-06-10", reason: "Brake fluid replacement" },
+  { id: 2, bikeId: 12, date: "2026-06-11", reason: "Tire tread damage" },
+  { id: 3, bikeId: 18, date: "2026-06-10", reason: "Battery diagnostic alert" }
+];
+
 export default function App() {
   // --- STATE ---
   const [activeRole, setActiveRole] = useState('customer'); // 'customer' | 'host' | 'admin'
+  const [activeCustomerSubTab, setActiveCustomerSubTab] = useState('explore'); // 'explore' | 'my-bookings'
   const [experiences, setExperiences] = useState(INITIAL_EXPERIENCES);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [showNotifications, setShowNotifications] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  // Inventory pool state
+  // Fleet management states
   const [totalBikes, setTotalBikes] = useState(30);
-  const [maintenanceBikes, setMaintenanceBikes] = useState([12]); // Active maintenance list
+  const [maintenanceSchedule, setMaintenanceSchedule] = useState(INITIAL_MAINTENANCE);
 
   // Booking Modal State
   const [bookingExperience, setBookingExperience] = useState(null);
@@ -148,7 +160,11 @@ export default function App() {
   const [bookingSpots, setBookingSpots] = useState(1);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [bookingStep, setBookingStep] = useState(1); // 1 = Details, 2 = Payment, 3 = Confirmation
+  const [bookingStep, setBookingStep] = useState(1); // 1 = Details/Calendar, 2 = Payment, 3 = Confirmation
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Boarding Pass modal
+  const [viewingPassBooking, setViewingPassBooking] = useState(null);
 
   // Host Create Experience Form State
   const [newExpTitle, setNewExpTitle] = useState("");
@@ -160,6 +176,16 @@ export default function App() {
   const [newExpTier, setNewExpTier] = useState(1); // 1, 2, 3
   const [newExpTimeSlots, setNewExpTimeSlots] = useState(["10:00", "15:00"]);
   const [hostFormError, setHostFormError] = useState("");
+
+  // Host Dynamic Calculator Sliders
+  const [calcPriceSlider, setCalcPriceSlider] = useState(55);
+  const [calcBookingsSlider, setCalcBookingsSlider] = useState(25);
+  const [calcTierSlider, setCalcTierSlider] = useState(1);
+
+  // Admin New Maintenance state
+  const [adminMaintBikeId, setAdminMaintBikeId] = useState("1");
+  const [adminMaintDate, setAdminMaintDate] = useState("2026-06-10");
+  const [adminMaintReason, setAdminMaintReason] = useState("");
 
   // --- REVENUE CALCULATION UTILITY ---
   const calculateRevenue = (price, spots, duration, tier) => {
@@ -189,17 +215,25 @@ export default function App() {
     };
   };
 
-  // --- INVENTORY LOCKING UTILITY ---
+  // --- INVENTORY & MAINTENANCE LOCKING UTILITY ---
+  // Calculates how many bikes are blocked/in-maintenance on a specific date
+  const getMaintenanceCountForDate = (dateString) => {
+    return maintenanceSchedule.filter(m => m.date === dateString).length;
+  };
+
+  // Calculates how many bikes are occupied by active bookings on a date + time
   const getOccupiedBikes = (date, time) => {
     return bookings
       .filter(b => b.date === date && b.time === time && b.status === "confirmed")
       .reduce((sum, b) => sum + b.spots, 0);
   };
 
+  // Total available bikes dynamically accounts for both maintenance schedules and booking locks
   const getAvailableBikes = (date, time) => {
-    const activeBikes = totalBikes - maintenanceBikes.length;
+    const maintenanceCount = getMaintenanceCountForDate(date);
+    const activeFleet = Math.max(0, totalBikes - maintenanceCount);
     const occupied = getOccupiedBikes(date, time);
-    return Math.max(0, activeBikes - occupied);
+    return Math.max(0, activeFleet - occupied);
   };
 
   // --- NOTIFICATIONS ADDER ---
@@ -222,11 +256,9 @@ export default function App() {
       return;
     }
 
-    const bikesNeeded = bookingSpots;
     const available = getAvailableBikes(bookingDate, bookingTime);
-
-    if (bikesNeeded > available) {
-      alert(`Overbooking Error: Only ${available} electric bikes available for this slot.`);
+    if (bookingSpots > available) {
+      alert(`Overbooking Error: Only ${available} e-bikes are available for this date and time.`);
       return;
     }
 
@@ -255,9 +287,21 @@ export default function App() {
     };
 
     setBookings(prev => [newBooking, ...prev]);
-    addNotification(`New Booking: ${customerName} booked '${bookingExperience.title}' (${bookingSpots} spots) for ${bookingDate} at ${bookingTime}`, "booking");
+    addNotification(`New Booking Confirmed: ${customerName} booked '${bookingExperience.title}' (${bookingSpots} spots) for ${bookingDate} at ${bookingTime}`, "booking");
     
+    // Confetti effect simulation
+    setShowConfetti(true);
     setBookingStep(3);
+  };
+
+  const handleCancelBooking = (bookingId) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    if (window.confirm(`Are you sure you want to cancel your booking for ${booking.experienceTitle}? Your payment will be fully refunded.`)) {
+      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
+      addNotification(`Booking Cancelled: ${booking.customerName} cancelled their slot for '${booking.experienceTitle}' on ${booking.date}`, "booking");
+    }
   };
 
   const handleCreateExperience = (e) => {
@@ -297,29 +341,35 @@ export default function App() {
     setNewExpPrice(45);
     setNewExpDuration(2);
     setNewExpTier(1);
-    alert("Experience created successfully and added to Tourbi Marketplace!");
+    alert("Experience created successfully!");
   };
 
-  const toggleMaintenance = (bikeId) => {
-    if (maintenanceBikes.includes(bikeId)) {
-      setMaintenanceBikes(prev => prev.filter(id => id !== bikeId));
-      addNotification(`Bike #${bikeId} returned to service. Central pool availability increased.`, "system");
-    } else {
-      setMaintenanceBikes(prev => [...prev, bikeId]);
-      addNotification(`Bike #${bikeId} put into maintenance. Removing from available fleet.`, "system");
+  // Admin add bike to maintenance for specific date
+  const handleAddMaintenance = (e) => {
+    e.preventDefault();
+    if (!adminMaintReason) {
+      alert("Please describe the maintenance reason.");
+      return;
     }
+
+    const bikeIdNum = parseInt(adminMaintBikeId);
+    const newMaint = {
+      id: Date.now(),
+      bikeId: bikeIdNum,
+      date: adminMaintDate,
+      reason: adminMaintReason
+    };
+
+    setMaintenanceSchedule(prev => [...prev, newMaint]);
+    addNotification(`Maintenance Scheduled: Bike #${bikeIdNum} is flagged for maintenance on ${adminMaintDate}`, "system");
+    setAdminMaintReason("");
   };
 
-  const handleAddBike = () => {
-    const newBikeId = totalBikes + 1;
-    setTotalBikes(prev => prev + 1);
-    addNotification(`Admin added Bike #${newBikeId} to the rental pool. Total bikes: ${totalBikes + 1}`, "system");
-  };
-
-  const handleRemoveBike = () => {
-    if (totalBikes <= 1) return;
-    setTotalBikes(prev => prev - 1);
-    addNotification(`Admin removed a bike from the rental pool. Total bikes: ${totalBikes - 1}`, "system");
+  const handleRemoveMaintenance = (id) => {
+    const scheduled = maintenanceSchedule.find(m => m.id === id);
+    if (!scheduled) return;
+    setMaintenanceSchedule(prev => prev.filter(m => m.id !== id));
+    addNotification(`Maintenance Cleared: Bike #${scheduled.bikeId} returned to service for ${scheduled.date}`, "system");
   };
 
   // --- STATS AND ANALYTICS ---
@@ -338,22 +388,31 @@ export default function App() {
       }
     });
 
-    const activeFleet = totalBikes - maintenanceBikes.length;
-    const occupancyRate = bookings.length > 0 ? ((bookings.reduce((s, b) => s + b.spots, 0) / (activeFleet * 10)) * 100).toFixed(1) : 0;
+    const activeBikesToday = Math.max(0, totalBikes - getMaintenanceCountForDate("2026-06-10"));
+    const occupancyRate = bookings.filter(b => b.status === "confirmed").length > 0 
+      ? ((bookings.filter(b => b.status === "confirmed").reduce((s, b) => s + b.spots, 0) / (totalBikes * 5)) * 100).toFixed(1)
+      : 0;
 
     return {
       totalRevenue,
       totalPlatformFees,
       totalBikeFees,
       totalHostPayouts,
-      activeFleet,
+      activeBikesToday,
       occupancyRate
     };
-  }, [bookings, totalBikes, maintenanceBikes]);
+  }, [bookings, totalBikes, maintenanceSchedule]);
 
   const filteredExperiences = experiences.filter(exp => 
     categoryFilter === 'All' ? true : exp.category === categoryFilter
   );
+
+  // Dynamic calendar dates for June 2026 grid selector
+  const juneDays = Array.from({ length: 30 }, (_, i) => {
+    const day = i + 1;
+    const dateString = `2026-06-${day < 10 ? '0' + day : day}`;
+    return dateString;
+  });
 
   return (
     <div className="flex flex-col" style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-dark)' }}>
@@ -410,6 +469,92 @@ export default function App() {
         </div>
       )}
 
+      {/* --- BOARDING PASS MODAL --- */}
+      {viewingPassBooking && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 className="text-base font-bold text-white">Boarding Ticket</h3>
+              <button 
+                onClick={() => setViewingPassBooking(null)}
+                className="text-gray-400 hover-opacity cursor-pointer"
+                style={{ background: 'transparent', border: 'none' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body text-center" style={{ padding: '32px 24px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #02132a, #0c1938)',
+                border: '2px dashed rgba(255,255,255,0.15)',
+                borderRadius: '16px',
+                padding: '24px',
+                textAlign: 'left',
+                position: 'relative'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>TOURBI E-BIKES</span>
+                    <h4 className="text-sm font-bold text-white mt-1">{viewingPassBooking.experienceTitle}</h4>
+                  </div>
+                  <span className="bg-lime text-black font-extrabold" style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '9px' }}>BOARDING PASS</span>
+                </div>
+
+                <div className="border-t-line pb-4 pt-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '11px' }}>
+                  <div>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Rider Name</span>
+                    <span className="text-white font-bold">{viewingPassBooking.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Ticket ID</span>
+                    <span className="text-white font-bold">#TRB-{viewingPassBooking.id}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Date & Time</span>
+                    <span className="text-white font-bold">{viewingPassBooking.date} @ {viewingPassBooking.time}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Total Reserved Spots</span>
+                    <span className="text-white font-bold">{viewingPassBooking.spots} E-Bike(s)</span>
+                  </div>
+                </div>
+
+                <div className="border-t-line pt-4 text-center">
+                  <div style={{
+                    backgroundColor: '#fff',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    display: 'inline-block',
+                    width: '120px',
+                    height: '120px',
+                    backgroundImage: 'url("https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=tourbi-boarding-pass-verification")',
+                    backgroundSize: 'cover',
+                    margin: '0 auto'
+                  }} />
+                  <span className="text-gray-500 block mt-2" style={{ fontSize: '8px' }}>SCAN QR CODE AT DEPARTURE SITE</span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => window.print()}
+                  className="btn-outline flex-1"
+                >
+                  <Printer size={14} /> PRINT PASS
+                </button>
+                <button 
+                  onClick={() => setViewingPassBooking(null)}
+                  className="btn-primary-purple flex-1"
+                >
+                  CLOSE
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- HEADER --- */}
       <header className="header-wrapper flex items-center justify-between">
         <div className="flex items-center gap-6">
@@ -429,10 +574,12 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Role selection tab buttons */}
           <div className="flex gap-1 p-1" style={{ backgroundColor: '#02132a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
             <button 
-              onClick={() => setActiveRole('customer')} 
+              onClick={() => {
+                setActiveRole('customer');
+                setActiveCustomerSubTab('explore');
+              }} 
               className="cursor-pointer"
               style={{
                 border: 'none',
@@ -481,7 +628,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Alert bell icon */}
           <button 
             onClick={() => setShowNotifications(true)}
             className="relative cursor-pointer hover-opacity"
@@ -502,7 +648,7 @@ export default function App() {
       </header>
 
       {/* --- HERO SECTION --- */}
-      {activeRole === 'customer' && (
+      {activeRole === 'customer' && activeCustomerSubTab === 'explore' && (
         <section className="hero-section">
           <div className="hero-pattern" />
           
@@ -519,7 +665,7 @@ export default function App() {
               </div>
               
               <p className="text-gray-400 text-base" style={{ maxWidth: '450px', lineHeight: '1.6' }}>
-                The most innovative touring platform for electric bikes. Whether you're visiting or live here, Tourbi has unforgettable experiences for every vibe and occasion.
+                The most innovative touring platform for electric bikes. Book city-wide rides and explore beautiful monument loops with centralized inventory locking.
               </p>
 
               <div className="flex flex-wrap gap-4" style={{ marginTop: '16px' }}>
@@ -552,8 +698,8 @@ export default function App() {
               
               <div className="hero-img-badge glass-panel p-4 flex justify-between items-center">
                 <div>
-                  <span className="text-xs text-lime font-bold uppercase" style={{ letterSpacing: '1px', display: 'block' }}>Available Fleet</span>
-                  <h4 className="text-base font-bold text-white mt-1">{stats.activeFleet} Active E-Bikes</h4>
+                  <span className="text-xs text-lime font-bold uppercase" style={{ letterSpacing: '1px', display: 'block' }}>Available Today</span>
+                  <h4 className="text-base font-bold text-white mt-1">{stats.activeBikesToday} E-Bikes Active</h4>
                 </div>
                 <span className="rounded-circle bg-lime" style={{ width: '8px', height: '8px', display: 'inline-block', boxShadow: '0 0 10px var(--color-lime)' }} />
               </div>
@@ -562,163 +708,222 @@ export default function App() {
         </section>
       )}
 
-      {/* --- MAIN PORTAL PANELS --- */}
+      {/* --- MAIN BODY --- */}
       <main className="flex-1 container py-10">
 
         {/* ========================================================================= */}
-        {/* CUSTOMER PORTAL */}
+        {/* CUSTOMER RIDER PORTAL */}
         {/* ========================================================================= */}
         {activeRole === 'customer' && (
-          <div id="experiences-explore" className="flex flex-col gap-6 animate-fade-in">
-            {/* Header / Intro */}
-            <div className="flex justify-between items-center gap-4 pb-6 border-b-line flex-wrap">
-              <div>
-                <h2 className="text-2xl font-extrabold text-white">TWO WAYS TO EXPERIENCE</h2>
-                <p className="text-gray-400 text-xs mt-1">Browse and book tours below or filter by your favorite category.</p>
-              </div>
-
-              {/* Category switches */}
-              <div className="flex flex-wrap gap-2">
-                {['All', 'Brunch Rides', 'Moonlight Tours', 'Scavenger Hunts', 'Speed Dating'].map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className="cursor-pointer font-bold"
-                    style={{
-                      border: categoryFilter === cat ? '1px solid var(--color-purple)' : '1px solid rgba(255,255,255,0.08)',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      fontSize: '11px',
-                      backgroundColor: categoryFilter === cat ? 'var(--color-purple)' : 'rgba(255,255,255,0.03)',
-                      color: categoryFilter === cat ? '#fff' : 'var(--color-text-secondary)',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {cat.toUpperCase()}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-col gap-8 animate-fade-in">
+            
+            {/* Sub-tab navigation */}
+            <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '12px' }}>
+              <button 
+                onClick={() => setActiveCustomerSubTab('explore')}
+                className="btn-tab cursor-pointer"
+                style={{
+                  color: activeCustomerSubTab === 'explore' ? '#fff' : 'var(--color-text-secondary)',
+                  borderBottom: activeCustomerSubTab === 'explore' ? '2px solid var(--color-purple)' : 'none',
+                  borderRadius: '0',
+                  padding: '8px 4px'
+                }}
+              >
+                Explore Experiences
+              </button>
+              <button 
+                onClick={() => setActiveCustomerSubTab('my-bookings')}
+                className="btn-tab cursor-pointer"
+                style={{
+                  color: activeCustomerSubTab === 'my-bookings' ? '#fff' : 'var(--color-text-secondary)',
+                  borderBottom: activeCustomerSubTab === 'my-bookings' ? '2px solid var(--color-purple)' : 'none',
+                  borderRadius: '0',
+                  padding: '8px 4px'
+                }}
+              >
+                My Bookings & Tickets
+              </button>
             </div>
 
-            {/* Experiences Grid */}
-            <div className="grid grid-3">
-              {filteredExperiences.map(exp => (
-                <div 
-                  key={exp.id} 
-                  className="glass-panel exp-card"
-                >
-                  <div className="exp-card-img-container">
-                    <img 
-                      src={exp.image} 
-                      alt={exp.title}
-                    />
-                    <div className="absolute" style={{ top: '16px', right: '16px' }}>
-                      <span className={`badge-tier badge-tier-${exp.tier}`}>
-                        Tier {exp.tier} Host
-                      </span>
-                    </div>
+            {/* SUBTAB 1: Explore Grid */}
+            {activeCustomerSubTab === 'explore' && (
+              <div id="experiences-explore" className="flex flex-col gap-6">
+                <div className="flex justify-between items-center gap-4 pb-6 border-b-line flex-wrap">
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-white">TWO WAYS TO EXPERIENCE</h2>
+                    <p className="text-gray-400 text-xs mt-1">Browse tours below, sync your calendar, and lock bike allocations instantly.</p>
                   </div>
 
-                  <div className="exp-card-content">
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-lime uppercase" style={{ letterSpacing: '1.5px' }}>
-                        {exp.category === "Brunch Rides" && <Coffee size={12} />}
-                        {exp.category === "Moonlight Tours" && <Moon size={12} />}
-                        {exp.category === "Scavenger Hunts" && <Compass size={12} />}
-                        {exp.category === "Speed Dating" && <Heart size={12} />}
-                        {exp.category}
-                      </div>
-
-                      <h3 className="text-base font-bold text-white mt-1">{exp.title}</h3>
-                      <p className="text-gray-400 text-xs line-clamp-3" style={{ lineHeight: '1.6', marginTop: '6px' }}>{exp.description}</p>
-                    </div>
-
-                    <div className="flex flex-col gap-4 pt-4 border-t-line mt-4">
-                      {/* Metas */}
-                      <div className="flex justify-between items-center text-xs text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Clock size={12} />
-                          <span>{exp.duration} hrs</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users size={12} />
-                          <span>Max {exp.maxGroupSize} spots</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Bike size={12} />
-                          <span>E-Bike Incl.</span>
-                        </div>
-                      </div>
-
-                      {/* Pricing and CTA */}
-                      <div className="flex justify-between items-center pt-2">
-                        <div>
-                          <span className="text-xs text-gray-500" style={{ display: 'block', fontSize: '9px', fontWeight: '800' }}>PRICE PER SPOT</span>
-                          <span className="text-xl font-black text-white">${exp.price}</span>
-                        </div>
-                        
-                        <button 
-                          onClick={() => {
-                            setBookingExperience(exp);
-                            setBookingTime(exp.timeSlots[0] || "10:00");
-                            setBookingStep(1);
-                            setCustomerName("");
-                            setCustomerEmail("");
-                            setBookingSpots(1);
-                          }}
-                          className="btn-primary-purple"
-                          style={{ padding: '8px 16px', fontSize: '11px' }}
-                        >
-                          BOOK TOUR
-                          <ArrowRight size={12} />
-                        </button>
-                      </div>
-                    </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['All', 'Brunch Rides', 'Moonlight Tours', 'Scavenger Hunts', 'Speed Dating'].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        className="cursor-pointer font-bold"
+                        style={{
+                          border: categoryFilter === cat ? '1px solid var(--color-purple)' : '1px solid rgba(255,255,255,0.08)',
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          backgroundColor: categoryFilter === cat ? 'var(--color-purple)' : 'rgba(255,255,255,0.03)',
+                          color: categoryFilter === cat ? '#fff' : 'var(--color-text-secondary)',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {cat.toUpperCase()}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
 
-            {/* How it works info card */}
-            <div className="grid grid-2 pt-10">
-              <div className="glass-panel p-6 flex gap-4 items-start" style={{ borderLeft: '4px solid var(--color-lime)' }}>
-                <div className="flex items-center justify-center rounded-circle" style={{ padding: '10px', backgroundColor: 'rgba(191,255,0,0.1)', color: 'var(--color-lime)' }}>
-                  <Bike size={20} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <h4 className="text-base font-bold text-white">FOR RIDERS: Choose & Cruise</h4>
-                  <p className="text-xs text-gray-400" style={{ lineHeight: '1.6' }}>
-                    Select the experience that fits your vibe, pick your preferred date and time, and instantly secure your spot. The electric bike and all safety gear are prepared and locked in automatically.
-                  </p>
+                <div className="grid grid-3">
+                  {filteredExperiences.map(exp => (
+                    <div key={exp.id} className="glass-panel exp-card">
+                      <div className="exp-card-img-container">
+                        <img src={exp.image} alt={exp.title} />
+                        <div className="absolute" style={{ top: '16px', right: '16px' }}>
+                          <span className={`badge-tier badge-tier-${exp.tier}`}>
+                            Tier {exp.tier} Host
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="exp-card-content">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 text-xs font-bold text-lime uppercase" style={{ letterSpacing: '1.5px' }}>
+                            {exp.category === "Brunch Rides" && <Coffee size={12} />}
+                            {exp.category === "Moonlight Tours" && <Moon size={12} />}
+                            {exp.category === "Scavenger Hunts" && <Compass size={12} />}
+                            {exp.category === "Speed Dating" && <Heart size={12} />}
+                            {exp.category}
+                          </div>
+
+                          <h3 className="text-base font-bold text-white mt-1">{exp.title}</h3>
+                          <p className="text-gray-400 text-xs line-clamp-3" style={{ lineHeight: '1.6', marginTop: '6px' }}>{exp.description}</p>
+                        </div>
+
+                        <div className="flex flex-col gap-4 pt-4 border-t-line mt-4">
+                          <div className="flex justify-between items-center text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <Clock size={12} />
+                              <span>{exp.duration} hrs</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Users size={12} />
+                              <span>Max {exp.maxGroupSize} spots</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Bike size={12} />
+                              <span>E-Bike Incl.</span>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center pt-2">
+                            <div>
+                              <span className="text-gray-500" style={{ display: 'block', fontSize: '9px', fontWeight: '800' }}>PRICE PER SPOT</span>
+                              <span className="text-xl font-black text-white">${exp.price}</span>
+                            </div>
+                            
+                            <button 
+                              onClick={() => {
+                                setBookingExperience(exp);
+                                setBookingTime(exp.timeSlots[0] || "10:00");
+                                setBookingStep(1);
+                                setCustomerName("");
+                                setCustomerEmail("");
+                                setBookingSpots(1);
+                              }}
+                              className="btn-primary-purple"
+                              style={{ padding: '8px 16px', fontSize: '11px' }}
+                            >
+                              BOOK TOUR
+                              <ArrowRight size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <div className="glass-panel p-6 flex gap-4 items-start" style={{ borderLeft: '4px solid var(--color-orange)' }}>
-                <div className="flex items-center justify-center rounded-circle" style={{ padding: '10px', backgroundColor: 'rgba(255,90,0,0.1)', color: 'var(--color-orange)' }}>
-                  <Sparkles size={20} />
+            {/* SUBTAB 2: My Bookings & Tickets */}
+            {activeCustomerSubTab === 'my-bookings' && (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">My Ride Boarding Passes</h2>
+                  <p className="text-gray-400 text-xs mt-1">Access your boarding passes, verify real-time departure details, or cancel your bookings.</p>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <h4 className="text-base font-bold text-white">FOR CREATORS: We Provide the Fleet</h4>
-                  <p className="text-xs text-gray-400" style={{ lineHeight: '1.6' }}>
-                    You bring the unique idea and guide the group, we handle the electric bike fleet! Create, customize, and publish your tour while keeping up to 100% of your ticket price depending on your preferred revenue tier.
-                  </p>
-                </div>
+
+                {bookings.filter(b => b.status !== 'cancelled').length === 0 ? (
+                  <div className="glass-panel p-8 text-center text-gray-500 flex flex-col gap-2 items-center">
+                    <CalendarCheck size={36} />
+                    <span>No active boarding tickets found. Book an experience to generate your passes.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-2">
+                    {bookings.filter(b => b.status !== 'cancelled').map(b => (
+                      <div key={b.id} className="glass-panel p-6 flex flex-col justify-between gap-4 border-l-4 border-l-purple">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>Rider Ticket</span>
+                            <h3 className="text-base font-bold text-white mt-1">{b.experienceTitle}</h3>
+                          </div>
+                          <span className="text-lime font-bold uppercase" style={{ 
+                            fontSize: '8px', 
+                            padding: '2px 6px', 
+                            backgroundColor: 'rgba(16,185,129,0.1)', 
+                            border: '1px solid rgba(16,185,129,0.3)', 
+                            borderRadius: '4px' 
+                          }}>
+                            Active
+                          </span>
+                        </div>
+
+                        <div className="grid grid-2 text-xs text-gray-400 border-t-line border-b-line py-3">
+                          <div>Ticket Ref: <span className="text-white font-bold">#TRB-{b.id}</span></div>
+                          <div>Spots Reserved: <span className="text-white font-bold">{b.spots} E-Bike(s)</span></div>
+                          <div>Departure: <span className="text-white font-bold">{b.date} @ {b.time}</span></div>
+                          <div>Total Charged: <span className="text-white font-bold">${b.totalPaid}</span></div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setViewingPassBooking(b)}
+                            className="btn-primary-purple flex-1 py-2 text-xs"
+                          >
+                            VIEW BOARDING PASS
+                          </button>
+                          <button 
+                            onClick={() => handleCancelBooking(b.id)}
+                            className="btn-outline py-2 text-xs"
+                            style={{ color: 'var(--color-error)' }}
+                          >
+                            CANCEL RIDE
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
 
         {/* ========================================================================= */}
-        {/* HOST DASHBOARD */}
+        {/* HOST PORTAL */}
         {/* ========================================================================= */}
         {activeRole === 'host' && (
           <div className="flex flex-col gap-8 animate-fade-in">
-            {/* Host header banner */}
+            
+            {/* Host Banner */}
             <div className="glass-panel p-6 flex justify-between items-center gap-4 flex-wrap" style={{ background: 'linear-gradient(to right, #0d122b, #1a1226)' }}>
               <div>
                 <span className="text-xs text-orange font-bold uppercase" style={{ letterSpacing: '1px' }}>Host Panel</span>
                 <h2 className="text-2xl font-extrabold text-white mt-1">Welcome back, Demo Host!</h2>
-                <p className="text-gray-400 text-xs mt-1">Manage your experiences, track your bookings, and design new tours.</p>
+                <p className="text-gray-400 text-xs mt-1">Design bike tours, simulate your projected earnings, and check payouts.</p>
               </div>
               
               <div className="flex gap-4 p-3 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -729,6 +934,104 @@ export default function App() {
                 <div style={{ borderLeft: '1px solid rgba(255,255,255,0.08)', paddingLeft: '16px' }}>
                   <span className="text-xs text-gray-500" style={{ fontSize: '9px', fontWeight: '800', display: 'block' }}>MY ACTIVE TOURS</span>
                   <span className="text-xl font-black text-white">{experiences.length}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Calculator Slider (User-Friendly Highlight) */}
+            <div className="glass-panel p-6 flex flex-col gap-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <BarChart3 className="text-lime" size={16} />
+                  Interactive Monthly Revenue Projector
+                </h3>
+                <p className="text-gray-500 text-xs mt-1">Adjust the sliders to simulate expected monthly profits and splits.</p>
+              </div>
+
+              <div className="grid grid-3" style={{ gap: '24px' }}>
+                {/* Sliders */}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="form-label flex justify-between">
+                      <span>Ticket Price ($)</span>
+                      <span className="text-white font-bold">${calcPriceSlider}</span>
+                    </label>
+                    <input 
+                      type="range" 
+                      min="15" 
+                      max="150" 
+                      value={calcPriceSlider} 
+                      onChange={(e) => setCalcPriceSlider(parseInt(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--color-orange)' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label flex justify-between">
+                      <span>Spots Booked / Month</span>
+                      <span className="text-white font-bold">{calcBookingsSlider} spots</span>
+                    </label>
+                    <input 
+                      type="range" 
+                      min="5" 
+                      max="200" 
+                      value={calcBookingsSlider} 
+                      onChange={(e) => setCalcBookingsSlider(parseInt(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--color-orange)' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tier Picker */}
+                <div className="flex flex-col gap-2">
+                  <label className="form-label">Select Projector Tier</label>
+                  <div className="flex flex-col gap-2">
+                    {[1, 2, 3].map(t => (
+                      <div 
+                        key={t}
+                        onClick={() => setCalcTierSlider(t)}
+                        className="p-2 rounded-lg border cursor-pointer text-xs flex justify-between items-center"
+                        style={{
+                          backgroundColor: calcTierSlider === t ? 'rgba(79,70,229,0.12)' : 'rgba(1,18,38,0.5)',
+                          borderColor: calcTierSlider === t ? 'var(--color-purple)' : 'rgba(255,255,255,0.05)'
+                        }}
+                      >
+                        <span className="font-bold text-white">Tier {t}</span>
+                        <span style={{ color: t === 3 ? 'var(--color-orange)' : t === 2 ? 'var(--color-lime)' : '#818cf8' }}>
+                          {t === 1 ? '70% host / $10 fee' : t === 2 ? '85% host / $15 fee' : '100% host / $20 fee'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Outputs card */}
+                <div className="p-4 rounded-xl flex flex-col justify-between" style={{ backgroundColor: '#000c1a', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {(() => {
+                    const duration = 2.0; // Assumed average duration
+                    const calc = calculateRevenue(calcPriceSlider, calcBookingsSlider, duration, calcTierSlider);
+                    return (
+                      <div className="flex flex-col gap-2">
+                        <span className="text-gray-500 font-bold uppercase" style={{ fontSize: '9px' }}>Estimated Monthly Breakdown</span>
+                        <div className="flex justify-between text-xs">
+                          <span>Total Ticket Sales:</span>
+                          <span className="text-white">${calc.ticketRevenue.toFixed(0)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span>Est. Platform Comm:</span>
+                          <span className="text-white">${calc.platformFee.toFixed(0)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span>Est. Bike Usage Fees:</span>
+                          <span className="text-white">${calc.bikeFee.toFixed(0)}</span>
+                        </div>
+                        <div className="border-t-line pt-2 mt-2 flex justify-between items-baseline">
+                          <span className="text-orange font-bold text-xs">Net Host Earnings:</span>
+                          <span className="text-lg font-black text-orange">${calc.hostPayout.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -840,50 +1143,33 @@ export default function App() {
                     <label className="form-label">Select Revenue Tier</label>
                     
                     <div className="grid grid-3">
-                      <div 
-                        onClick={() => setNewExpTier(1)}
-                        className="p-3 rounded-lg border cursor-pointer text-center"
-                        style={{
-                          backgroundColor: newExpTier === 1 ? 'rgba(79,70,229,0.12)' : 'rgba(1,18,38,0.5)',
-                          borderColor: newExpTier === 1 ? 'var(--color-purple)' : 'rgba(255,255,255,0.05)'
-                        }}
-                      >
-                        <span className="text-xs font-bold text-white" style={{ display: 'block' }}>Tier 1</span>
-                        <span className="text-xs font-bold mt-1" style={{ color: '#818cf8', display: 'block', fontSize: '10px' }}>Host 70% / Plat 30%</span>
-                        <span className="text-gray-500 mt-1" style={{ display: 'block', fontSize: '9px' }}>$10 / bike / hr</span>
-                      </div>
-
-                      <div 
-                        onClick={() => setNewExpTier(2)}
-                        className="p-3 rounded-lg border cursor-pointer text-center"
-                        style={{
-                          backgroundColor: newExpTier === 2 ? 'rgba(191,255,0,0.12)' : 'rgba(1,18,38,0.5)',
-                          borderColor: newExpTier === 2 ? 'var(--color-lime)' : 'rgba(255,255,255,0.05)'
-                        }}
-                      >
-                        <span className="text-xs font-bold text-white" style={{ display: 'block' }}>Tier 2</span>
-                        <span className="text-xs font-bold mt-1 text-lime" style={{ display: 'block', fontSize: '10px' }}>Host 85% / Plat 15%</span>
-                        <span className="text-gray-500 mt-1" style={{ display: 'block', fontSize: '9px' }}>$15 / bike / hr</span>
-                      </div>
-
-                      <div 
-                        onClick={() => setNewExpTier(3)}
-                        className="p-3 rounded-lg border cursor-pointer text-center"
-                        style={{
-                          backgroundColor: newExpTier === 3 ? 'rgba(255,90,0,0.12)' : 'rgba(1,18,38,0.5)',
-                          borderColor: newExpTier === 3 ? 'var(--color-orange)' : 'rgba(255,255,255,0.05)'
-                        }}
-                      >
-                        <span className="text-xs font-bold text-white" style={{ display: 'block' }}>Tier 3</span>
-                        <span className="text-xs font-bold mt-1 text-orange" style={{ display: 'block', fontSize: '10px' }}>Host 100% / Plat 0%</span>
-                        <span className="text-gray-500 mt-1" style={{ display: 'block', fontSize: '9px' }}>$20 / bike / hr</span>
-                      </div>
+                      {[1, 2, 3].map(tierNum => (
+                        <div 
+                          key={tierNum}
+                          onClick={() => setNewExpTier(tierNum)}
+                          className="p-3 rounded-lg border cursor-pointer text-center"
+                          style={{
+                            backgroundColor: newExpTier === tierNum ? 'rgba(79,70,229,0.12)' : 'rgba(1,18,38,0.5)',
+                            borderColor: newExpTier === tierNum ? 'var(--color-purple)' : 'rgba(255,255,255,0.05)'
+                          }}
+                        >
+                          <span className="text-xs font-bold text-white" style={{ display: 'block' }}>Tier {tierNum}</span>
+                          <span className="text-xs font-bold mt-1" style={{ 
+                            color: tierNum === 3 ? 'var(--color-orange)' : tierNum === 2 ? 'var(--color-lime)' : '#818cf8', 
+                            display: 'block', 
+                            fontSize: '10px' 
+                          }}>
+                            {tierNum === 1 ? 'Host 70%' : tierNum === 2 ? 'Host 85%' : 'Host 100%'}
+                          </span>
+                          <span className="text-gray-500 mt-1" style={{ display: 'block', fontSize: '9px' }}>
+                            ${tierNum === 1 ? '10' : tierNum === 2 ? '15' : '20'}/bike/hr
+                          </span>
+                        </div>
+                      ))}
                     </div>
 
-                    {/* LIVE EARNINGS CALCULATOR DISPLAY */}
                     <div className="calc-card flex flex-col gap-2">
                       <span className="text-xs font-bold text-gray-500 uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>Host Live Earnings Calculator</span>
-                      
                       {(() => {
                         const singleCalc = calculateRevenue(
                           parseFloat(newExpPrice) || 0,
@@ -912,10 +1198,6 @@ export default function App() {
                           </div>
                         );
                       })()}
-                      
-                      <p className="text-gray-500 border-t-line pt-2 mt-2" style={{ fontSize: '9px', lineHeight: '1.4' }}>
-                        *Calculated per single spot booked. Under Tier 1 & 2, the bike fee is paid on top of ticket price. For Tier 3, host receives 100% of the ticket price, but pays the bike rental fee ($20/hour) to the platform (with a 2-hour minimum duration enforced).
-                      </p>
                     </div>
                   </div>
 
@@ -925,13 +1207,10 @@ export default function App() {
                 </form>
               </div>
 
-              {/* Host listings and bookings */}
+              {/* Host list & active bookings */}
               <div className="flex flex-col gap-6">
-                
-                {/* Active listings */}
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white">My Active Listings</h3>
-                  
                   <div className="flex flex-col gap-3">
                     {experiences.map(e => (
                       <div key={e.id} className="p-3 rounded-lg flex items-center justify-between" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -965,26 +1244,30 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Bookings log */}
+                {/* Host Bookings log */}
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white">Bookings Log</h3>
-                  
                   <div className="flex flex-col gap-3">
                     {bookings.map(b => (
-                      <div key={b.id} className="p-4 rounded-lg flex flex-col gap-2" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div key={b.id} className="p-4 rounded-lg flex flex-col gap-2" style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.02)', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        opacity: b.status === 'cancelled' ? '0.4' : '1' 
+                      }}>
                         <div className="flex justify-between items-start">
                           <div>
                             <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>Booking ID #{b.id}</span>
                             <h4 className="text-xs font-bold text-white mt-0.5">{b.experienceTitle}</h4>
                           </div>
-                          <span className="text-lime font-bold uppercase" style={{ 
+                          <span className="font-bold uppercase" style={{ 
                             fontSize: '8px', 
                             padding: '2px 6px', 
-                            backgroundColor: 'rgba(16,185,129,0.1)', 
-                            border: '1px solid rgba(16,185,129,0.3)', 
+                            backgroundColor: b.status === 'cancelled' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', 
+                            border: b.status === 'cancelled' ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)', 
+                            color: b.status === 'cancelled' ? 'var(--color-error)' : 'var(--color-success)',
                             borderRadius: '4px' 
                           }}>
-                            CONFIRMED
+                            {b.status.toUpperCase()}
                           </span>
                         </div>
 
@@ -998,7 +1281,6 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-
               </div>
 
             </div>
@@ -1010,7 +1292,7 @@ export default function App() {
         {/* ========================================================================= */}
         {activeRole === 'admin' && (
           <div className="flex flex-col gap-8 animate-fade-in">
-            {/* Dashboard stats cards */}
+            {/* Stats */}
             <div className="grid grid-4">
               <div className="glass-panel p-4 flex flex-col gap-2">
                 <span className="text-gray-400 font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>TOTAL PLATFORM FEES</span>
@@ -1037,98 +1319,160 @@ export default function App() {
               </div>
 
               <div className="glass-panel p-4 flex flex-col gap-2">
-                <span className="text-gray-400 font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>ACTIVE FLEET SIZE</span>
+                <span className="text-gray-400 font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>ACTIVE FLEET TODAY</span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <span className="text-2xl font-black text-white">{stats.activeFleet}</span>
+                  <span className="text-2xl font-black text-white">{stats.activeBikesToday}</span>
                   <span className="text-gray-400" style={{ fontSize: '9px' }}>/ {totalBikes} total</span>
                 </div>
               </div>
             </div>
 
             <div className="grid grid-2">
-              
-              {/* Bike fleet manager list */}
-              <div className="glass-panel p-6 flex flex-col gap-6">
-                <div className="flex justify-between items-center pb-4 border-b-line flex-wrap gap-4">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <Bike className="text-lime" size={18} />
-                      Central Bike Fleet Management
-                    </h3>
-                    <p className="text-gray-500 text-xs mt-1">Add, remove, and toggle maintenance status for all electric bikes.</p>
-                  </div>
+              {/* Fleet List & Maintenance dates manager */}
+              <div className="flex flex-col gap-6">
+                <div className="glass-panel p-6 flex flex-col gap-6">
+                  <div className="flex justify-between items-center pb-4 border-b-line flex-wrap gap-4">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Bike className="text-lime" size={18} />
+                        Central Bike Fleet
+                      </h3>
+                      <p className="text-gray-500 text-xs mt-1">Add or remove physical e-bikes to increase platform booking capacity.</p>
+                    </div>
 
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handleAddBike}
-                      className="cursor-pointer font-bold flex items-center gap-1"
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '10px',
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#fff',
-                        borderRadius: '6px'
-                      }}
-                    >
-                      <Plus size={12} /> ADD BIKE
-                    </button>
-                    <button 
-                      onClick={handleRemoveBike}
-                      className="cursor-pointer font-bold flex items-center gap-1"
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '10px',
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'var(--color-error)',
-                        borderRadius: '6px'
-                      }}
-                    >
-                      <Trash2 size={12} /> REMOVE BIKE
-                    </button>
-                  </div>
-                </div>
-
-                {/* Fleet list grid */}
-                <div className="grid grid-6">
-                  {Array.from({ length: totalBikes }).map((_, index) => {
-                    const bikeId = index + 1;
-                    const inMaintenance = maintenanceBikes.includes(bikeId);
-                    
-                    return (
-                      <div 
-                        key={bikeId}
-                        onClick={() => toggleMaintenance(bikeId)}
-                        className="p-3 rounded-lg border text-center cursor-pointer flex flex-col justify-between items-center gap-2"
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleAddBike}
+                        className="cursor-pointer font-bold flex items-center gap-1"
                         style={{
-                          backgroundColor: inMaintenance ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
-                          borderColor: inMaintenance ? 'var(--color-warning)' : 'rgba(255,255,255,0.05)',
-                          transition: 'all 0.2s'
+                          padding: '6px 12px',
+                          fontSize: '10px',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: '#fff',
+                          borderRadius: '6px'
                         }}
                       >
-                        <span className="text-gray-500 font-bold" style={{ fontSize: '9px' }}>BIKE</span>
-                        <span className="text-sm font-extrabold text-white">#{bikeId}</span>
-                        <span className="font-bold" style={{ 
-                          fontSize: '8px', 
-                          padding: '1px 4px', 
-                          borderRadius: '3px',
-                          backgroundColor: inMaintenance ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                          color: inMaintenance ? 'var(--color-warning)' : 'var(--color-success)'
-                        }}>
-                          {inMaintenance ? 'MAINT' : 'READY'}
-                        </span>
-                      </div>
-                    );
-                  })}
+                        <Plus size={12} /> ADD BIKE
+                      </button>
+                      <button 
+                        onClick={handleRemoveBike}
+                        className="cursor-pointer font-bold flex items-center gap-1"
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '10px',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: 'var(--color-error)',
+                          borderRadius: '6px'
+                        }}
+                      >
+                        <Trash2 size={12} /> REMOVE BIKE
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bike list grid */}
+                  <div className="grid grid-6">
+                    {Array.from({ length: totalBikes }).map((_, index) => {
+                      const bikeId = index + 1;
+                      const hasMaintToday = maintenanceSchedule.some(m => m.bikeId === bikeId && m.date === "2026-06-10");
+                      
+                      return (
+                        <div 
+                          key={bikeId}
+                          className="p-3 rounded-lg border text-center flex flex-col justify-between items-center gap-2"
+                          style={{
+                            backgroundColor: hasMaintToday ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)',
+                            borderColor: hasMaintToday ? 'var(--color-warning)' : 'rgba(255,255,255,0.05)',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <span className="text-gray-500 font-bold" style={{ fontSize: '9px' }}>BIKE</span>
+                          <span className="text-sm font-extrabold text-white">#{bikeId}</span>
+                          <span className="font-bold" style={{ 
+                            fontSize: '8px', 
+                            padding: '1px 4px', 
+                            borderRadius: '3px',
+                            backgroundColor: hasMaintToday ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            color: hasMaintToday ? 'var(--color-warning)' : 'var(--color-success)'
+                          }}>
+                            {hasMaintToday ? 'MAINT' : 'READY'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <p className="text-gray-500 mt-2" style={{ fontSize: '9px', lineHeight: '1.4' }}>
-                  *Admin Tip: Clicking any bike card toggles its 'Maintenance' state. Putting a bike in maintenance instantly lowers the active rental pool capacity. Customers will not be allowed to book slots that exceed the remaining capacity.
-                </p>
+                {/* Maintenance date locking manager */}
+                <div className="glass-panel p-6 flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <CalendarIcon className="text-orange" size={18} />
+                      Lock Maintenance Schedules (By Date)
+                    </h3>
+                    <p className="text-gray-500 text-xs mt-1">Mark individual e-bikes for maintenance on specific dates. These bikes are locked out of customer booking lists automatically.</p>
+                  </div>
+
+                  <form onSubmit={handleAddMaintenance} className="grid grid-3" style={{ gap: '16px', alignItems: 'end' }}>
+                    <div>
+                      <label className="form-label">Bike ID</label>
+                      <select 
+                        className="form-select"
+                        value={adminMaintBikeId}
+                        onChange={(e) => setAdminMaintBikeId(e.target.value)}
+                      >
+                        {Array.from({ length: totalBikes }).map((_, i) => (
+                          <option key={i+1} value={i+1}>Bike #{i+1}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label">Lock Date</label>
+                      <input 
+                        type="date" 
+                        className="form-input" 
+                        value={adminMaintDate}
+                        onChange={(e) => setAdminMaintDate(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <button type="submit" className="btn-primary-orange w-full" style={{ padding: '10px' }}>
+                        LOCK BIKE
+                      </button>
+                    </div>
+                  </form>
+
+                  <div className="flex flex-col gap-2 mt-4" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                    <span className="text-gray-500 font-bold uppercase" style={{ fontSize: '9px' }}>Current Scheduled Lockouts</span>
+                    {maintenanceSchedule.map(m => (
+                      <div key={m.id} className="p-3 rounded-lg flex justify-between items-center text-xs" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div>
+                          <span className="font-bold text-white">Bike #{m.bikeId}</span>
+                          <span className="text-gray-500" style={{ marginLeft: '8px' }}>on {m.date}</span>
+                        </div>
+                        <button 
+                          onClick={() => handleRemoveMaintenance(m.id)}
+                          className="cursor-pointer font-bold"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-error)',
+                            fontSize: '10px'
+                          }}
+                        >
+                          RELEASE
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* System Diagnostics & Logs */}
+              {/* Analytics & System Logs */}
               <div className="flex flex-col gap-6">
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1152,16 +1496,14 @@ export default function App() {
 
                     <div className="border-t-line pt-4 flex flex-col gap-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Total Bookings Processed</span>
+                        <span className="text-gray-400">Total Bookings (All time)</span>
                         <span className="text-white font-bold">{bookings.length}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-400">Active Bikes Pool</span>
-                        <span className="text-lime font-bold">{stats.activeFleet}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">Bikes in Shop</span>
-                        <span className="text-orange font-bold">{maintenanceBikes.length}</span>
+                        <span className="text-gray-400">Active Bookings Today</span>
+                        <span className="text-white font-bold">
+                          {bookings.filter(b => b.date === "2026-06-10" && b.status === "confirmed").length}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Platform Payout Share</span>
@@ -1174,30 +1516,32 @@ export default function App() {
                         <span className="text-orange font-bold">${stats.totalHostPayouts.toFixed(2)}</span>
                       </div>
                     </div>
-
                   </div>
                 </div>
 
-                {/* Booking list overview */}
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white">Global Bookings Log</h3>
-                  
-                  <div className="flex flex-col gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div className="flex flex-col gap-2" style={{ maxHeight: '250px', overflowY: 'auto' }}>
                     {bookings.map(b => (
-                      <div key={b.id} className="p-3 rounded-lg flex justify-between items-center text-xs" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div key={b.id} className="p-3 rounded-lg flex justify-between items-center text-xs" style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.02)', 
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        opacity: b.status === 'cancelled' ? '0.4' : '1'
+                      }}>
                         <div>
                           <p className="font-bold text-white">{b.customerName}</p>
-                          <span className="text-gray-500" style={{ fontSize: '10px' }}>{b.experienceTitle}</span>
+                          <span className="text-gray-500" style={{ fontSize: '10px' }}>{b.experienceTitle} ({b.spots} spots)</span>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-lime">${b.totalPaid}</span>
+                          <span className="font-bold text-lime" style={{ textDecoration: b.status === 'cancelled' ? 'line-through' : 'none' }}>
+                            ${b.totalPaid}
+                          </span>
                           <span className="text-gray-500 mt-1" style={{ fontSize: '9px', display: 'block' }}>{b.date} {b.time}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
-
               </div>
 
             </div>
@@ -1207,7 +1551,7 @@ export default function App() {
       </main>
 
       {/* ========================================================================= */}
-      {/* BOOKING MODAL & INTERACTIVE CALENDAR */}
+      {/* BOOKING MODAL & INTERACTIVE CALENDAR GRID */}
       {/* ========================================================================= */}
       {bookingExperience && (
         <div className="modal-backdrop">
@@ -1249,24 +1593,12 @@ export default function App() {
                 }}>3. CONFIRMATION</span>
               </div>
 
-              {/* STEP 1: Details and Inventory Calendar */}
+              {/* STEP 1: Details and Visual Inventory Calendar Grid */}
               {bookingStep === 1 && (
                 <div className="grid grid-2">
                   
-                  {/* Form fields & calendar selection */}
+                  {/* Left Column: Form Controls */}
                   <div className="flex flex-col gap-4">
-                    <div>
-                      <label className="form-label">Select Booking Date</label>
-                      <input 
-                        type="date" 
-                        className="form-input" 
-                        value={bookingDate}
-                        onChange={(e) => setBookingDate(e.target.value)}
-                        min="2026-06-09"
-                        max="2026-06-30"
-                      />
-                    </div>
-
                     <div className="grid grid-2">
                       <div>
                         <label className="form-label">Select Time Slot</label>
@@ -1283,7 +1615,7 @@ export default function App() {
                       </div>
 
                       <div>
-                        <label className="form-label">Number of Spots</label>
+                        <label className="form-label">Spots to Reserve</label>
                         <input 
                           type="number" 
                           className="form-input" 
@@ -1296,7 +1628,7 @@ export default function App() {
                     </div>
 
                     {/* Customer Info */}
-                    <div className="flex flex-col gap-3 pt-2">
+                    <div className="flex flex-col gap-3">
                       <div>
                         <label className="form-label">Full Name</label>
                         <input 
@@ -1318,61 +1650,7 @@ export default function App() {
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {/* Inventory Status Panel */}
-                  <div className="flex flex-col gap-4">
-                    <div className="p-4 flex flex-col gap-3 text-center" style={{ backgroundColor: '#000c1a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}>
-                      <span className="text-xs font-bold text-lime uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>Live Bike Inventory Status</span>
-                      
-                      {bookingTime ? (
-                        (() => {
-                          const available = getAvailableBikes(bookingDate, bookingTime);
-                          const isOverbooked = bookingSpots > available;
-                          
-                          return (
-                            <div className="flex flex-col gap-3 py-2">
-                              <div className="flex flex-col items-center justify-center">
-                                <Bike size={32} className={available > 0 ? "text-lime" : "text-red-500"} />
-                                <span className="text-2xl font-black mt-2 text-white">{available}</span>
-                                <span className="text-gray-500 font-bold" style={{ fontSize: '9px' }}>E-BIKES AVAILABLE</span>
-                              </div>
-
-                              <div className="text-xs flex flex-col gap-1">
-                                <p className="text-gray-400">For {bookingDate} at {bookingTime}</p>
-                                {isOverbooked ? (
-                                  <span className="font-bold border" style={{ 
-                                    color: 'var(--color-error)', 
-                                    backgroundColor: 'rgba(239,68,68,0.1)', 
-                                    borderColor: 'rgba(239,68,68,0.2)', 
-                                    padding: '6px', 
-                                    borderRadius: '4px' 
-                                  }}>
-                                    Overbooking: Needs {bookingSpots} bikes, only {available} left!
-                                  </span>
-                                ) : (
-                                  <span className="font-bold border text-lime" style={{ 
-                                    backgroundColor: 'rgba(191,255,0,0.1)', 
-                                    borderColor: 'rgba(191,255,0,0.2)', 
-                                    padding: '6px', 
-                                    borderRadius: '4px' 
-                                  }}>
-                                    Inventory Secured ✓
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()
-                      ) : (
-                        <div className="py-6 text-gray-500 text-xs flex flex-col items-center justify-center gap-2">
-                          <AlertCircle size={20} />
-                          <span style={{ lineHeight: '1.4' }}>Please select date, slot, and spots to check inventory availability.</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Quick breakdown preview */}
                     {bookingTime && (
                       <div className="p-4 text-xs flex flex-col gap-2" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}>
                         <span className="font-bold text-white uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>Cost Breakdown Preview</span>
@@ -1404,6 +1682,100 @@ export default function App() {
                     )}
                   </div>
 
+                  {/* Right Column: Visual Calendar Grid Picker */}
+                  <div className="flex flex-col gap-3">
+                    <label className="form-label text-center">Select Date (June 2026)</label>
+                    
+                    <div style={{
+                      backgroundColor: 'rgba(0,12,26,0.5)',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      borderRadius: '12px',
+                      padding: '12px'
+                    }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '8px' }}>
+                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                          <span key={d} className="text-gray-500 font-bold text-center" style={{ fontSize: '9px' }}>{d}</span>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+                        {/* Fill empty spaces for June starting on Monday */}
+                        <div />
+                        {juneDays.map((dateStr, idx) => {
+                          const dayNum = idx + 1;
+                          const available = bookingTime ? getAvailableBikes(dateStr, bookingTime) : totalBikes - getMaintenanceCountForDate(dateStr);
+                          const isSelected = bookingDate === dateStr;
+                          const isMaintLock = getMaintenanceCountForDate(dateStr) === totalBikes;
+                          const isFullyBooked = available <= 0;
+
+                          return (
+                            <div 
+                              key={dateStr}
+                              onClick={() => {
+                                if (!isFullyBooked && !isMaintLock) {
+                                  setBookingDate(dateStr);
+                                }
+                              }}
+                              className="cursor-pointer"
+                              style={{
+                                aspectRatio: '1',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '4px 2px',
+                                backgroundColor: isSelected 
+                                  ? 'var(--color-orange)' 
+                                  : isMaintLock 
+                                    ? 'rgba(239,68,68,0.1)' 
+                                    : isFullyBooked 
+                                      ? 'rgba(239,68,68,0.05)' 
+                                      : 'rgba(255,255,255,0.03)',
+                                border: isSelected 
+                                  ? '1px solid var(--color-orange)' 
+                                  : isFullyBooked || isMaintLock
+                                    ? '1px dashed rgba(239,68,68,0.3)'
+                                    : '1px solid rgba(255,255,255,0.05)',
+                                color: isSelected 
+                                  ? '#000' 
+                                  : isFullyBooked || isMaintLock
+                                    ? 'var(--color-text-muted)'
+                                    : '#fff',
+                                opacity: isFullyBooked || isMaintLock ? '0.4' : '1',
+                                pointerEvents: isFullyBooked || isMaintLock ? 'none' : 'auto'
+                              }}
+                            >
+                              <span style={{ fontSize: '9px', fontWeight: '800' }}>{dayNum}</span>
+                              <span style={{ 
+                                fontSize: '7px', 
+                                fontWeight: '700',
+                                color: isSelected ? '#000' : isFullyBooked ? 'var(--color-error)' : 'var(--color-lime)' 
+                              }}>
+                                {isMaintLock ? 'LOCK' : isFullyBooked ? 'FULL' : `${available} left`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '9px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
+                      <div className="flex items-center gap-1">
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', display: 'inline-block' }} />
+                        <span>Available</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'var(--color-orange)', display: 'inline-block' }} />
+                        <span>Selected</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px dashed rgba(239,68,68,0.3)', display: 'inline-block' }} />
+                        <span>Fully Booked</span>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               )}
 
@@ -1427,8 +1799,6 @@ export default function App() {
                       );
                       return (
                         <div className="flex flex-col gap-4">
-                          
-                          {/* Top breakdown */}
                           <div className="grid grid-3 pb-4 border-b-line text-center">
                             <div>
                               <span className="text-gray-400 block uppercase" style={{ fontSize: '10px' }}>Rider Pays</span>
@@ -1463,9 +1833,8 @@ export default function App() {
                           </div>
                           
                           <p className="border-t-line pt-2 mt-2 text-gray-500" style={{ fontSize: '9px', lineHeight: '1.4' }}>
-                            *Split Payment Security: Stripe will divide the transaction automatically. Host Payout is sent directly to your connected bank account. Platform commission & bike usage fee are routed to the central platform vault.
+                            *Split Payment Security: Stripe will divide the transaction automatically. Host Payout is sent directly to your connected bank account. Platform commission & bike usage fee are routed to the platform vault.
                           </p>
-
                         </div>
                       );
                     })()}
@@ -1519,11 +1888,10 @@ export default function App() {
                   <div className="flex flex-col gap-2">
                     <h3 className="text-xl font-black text-white">Booking Confirmed!</h3>
                     <p className="text-xs text-gray-400" style={{ maxWidth: '380px', margin: '0 auto', lineHeight: '1.6' }}>
-                      Thank you! Your electric bike experience is locked. A booking confirmation and calendar invite have been dispatched.
+                      Thank you! Your e-bike inventory has been locked. You can view your boarding tickets in the **My Bookings** tab.
                     </p>
                   </div>
 
-                  {/* Confirmation Table */}
                   <div className="p-4 text-xs flex flex-col gap-2 text-left" style={{ 
                     maxWidth: '400px', 
                     margin: '16px auto 0',
@@ -1562,7 +1930,6 @@ export default function App() {
                       </span>
                     </div>
                   </div>
-
                 </div>
               )}
 
@@ -1624,11 +1991,14 @@ export default function App() {
 
               {bookingStep === 3 && (
                 <button 
-                  onClick={() => setBookingExperience(null)}
+                  onClick={() => {
+                    setBookingExperience(null);
+                    setActiveCustomerSubTab('my-bookings');
+                  }}
                   className="btn-primary-purple cursor-pointer"
                   style={{ padding: '8px 24px', fontSize: '11px' }}
                 >
-                  DONE
+                  VIEW MY TICKETS
                 </button>
               )}
             </div>
