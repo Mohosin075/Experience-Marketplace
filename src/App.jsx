@@ -155,6 +155,17 @@ export default function App() {
   // --- STATE ---
   const [activeRole, setActiveRole] = useState('customer'); // 'customer' | 'host' | 'admin'
   const [activeCustomerSubTab, setActiveCustomerSubTab] = useState('explore'); // 'explore' | 'rent' | 'shop' | 'repairs' | 'my-bookings'
+  
+  // User Profile States
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileSubTab, setProfileSubTab] = useState('info'); // 'info' | 'payment' | 'security'
+  const [profileName, setProfileName] = useState("Mohosin Ahmed");
+  const [profileEmail, setProfileEmail] = useState("mohosin.ahmed@gmail.com");
+  const [profilePhone, setProfilePhone] = useState("+880 1712-345678");
+  const [linkedCard, setLinkedCard] = useState("Visa ending in 4242");
+  const [twoFactorAuth, setTwoFactorAuth] = useState(true);
+
   const [experiences, setExperiences] = useState(INITIAL_EXPERIENCES);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -787,6 +798,107 @@ export default function App() {
               <span className="absolute rounded-circle bg-orange" style={{ top: '4px', right: '4px', width: '6px', height: '6px' }} />
             )}
           </button>
+
+          {/* --- USER PROFILE dropdown --- */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-2 cursor-pointer hover-opacity"
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                color: '#fff'
+              }}
+            >
+              <div 
+                className="rounded-circle font-black text-black flex items-center justify-center bg-lime"
+                style={{ width: '24px', height: '24px', fontSize: '10px' }}
+              >
+                {profileName.split(' ').map(n => n[0]).join('')}
+              </div>
+              <span className="text-xs font-bold text-white" style={{ display: 'inline-block' }}>{profileName}</span>
+            </button>
+
+            {showProfileDropdown && (
+              <div 
+                className="glass-panel animate-fade-in"
+                style={{
+                  position: 'absolute',
+                  top: '42px',
+                  right: '0',
+                  width: '240px',
+                  zIndex: '1000',
+                  padding: '12px',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'linear-gradient(135deg, #001226, #020c17)'
+                }}
+              >
+                <div className="pb-3 border-b-line mb-2 text-left">
+                  <span className="text-gray-400 font-bold uppercase" style={{ fontSize: '8px', letterSpacing: '0.5px' }}>Current Role</span>
+                  <span className="text-xs font-bold text-white block mt-0.5">
+                    {activeRole === 'admin' ? '🛡️ System Admin' : activeRole === 'host' ? '⚡ Experience Host' : '🚲 Tour Rider'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      setProfileSubTab('info');
+                      setProfileModalOpen(true);
+                    }}
+                    className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    <User size={14} className="text-lime" /> Profile Settings
+                  </button>
+                  
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      setProfileSubTab('payment');
+                      setProfileModalOpen(true);
+                    }}
+                    className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    <DollarSign size={14} className="text-orange" /> Payment Methods
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      setProfileSubTab('security');
+                      setProfileModalOpen(true);
+                    }}
+                    className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    <Shield size={14} className="text-purple" /> Password & Security
+                  </button>
+
+                  <div className="border-t-line my-2" />
+
+                  <button 
+                    onClick={() => {
+                      setShowProfileDropdown(false);
+                      if (confirm("Are you sure you want to log out of this session?")) {
+                        setActiveRole('customer');
+                        setActiveCustomerSubTab('explore');
+                        addNotification("Logged out successfully.", "system");
+                      }
+                    }}
+                    className="text-left py-2 px-3 rounded-lg hover-bg text-xs font-bold w-full cursor-pointer text-red-400 flex items-center gap-2"
+                    style={{ background: 'none', border: 'none' }}
+                  >
+                    <X size={14} /> Log Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -2503,6 +2615,147 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* ========================================================================= */}
+      {/* USER PROFILE MODAL */}
+      {/* ========================================================================= */}
+      {profileModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '480px' }}>
+            <div className="modal-header">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Settings size={18} className="text-lime" /> Account Settings
+              </h3>
+              <button 
+                onClick={() => setProfileModalOpen(false)} 
+                className="text-gray-400 hover-opacity" 
+                style={{ background: 'transparent', border: 'none' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+                {['info', 'payment', 'security'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setProfileSubTab(tab)}
+                    className="font-bold cursor-pointer"
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      color: profileSubTab === tab ? 'var(--color-lime)' : 'var(--color-text-secondary)',
+                      borderBottom: profileSubTab === tab ? '2px solid var(--color-lime)' : 'none',
+                      padding: '6px 12px',
+                      fontSize: '11px'
+                    }}
+                  >
+                    {tab.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {profileSubTab === 'info' && (
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="form-label">Full Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={profileName} 
+                      onChange={(e) => setProfileName(e.target.value)} 
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Email Address</label>
+                    <input 
+                      type="email" 
+                      className="form-input" 
+                      value={profileEmail} 
+                      onChange={(e) => setProfileEmail(e.target.value)} 
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label">Phone Number</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={profilePhone} 
+                      onChange={(e) => setProfilePhone(e.target.value)} 
+                    />
+                  </div>
+                </div>
+              )}
+
+              {profileSubTab === 'payment' && (
+                <div className="flex flex-col gap-4">
+                  <div className="p-3 rounded-lg flex justify-between items-center" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>
+                      <span className="text-white font-bold block text-xs">{linkedCard}</span>
+                      <span className="text-gray-500 text-xs mt-0.5 block">Default checkout card</span>
+                    </div>
+                    <span className="bg-purple text-white font-extrabold" style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px' }}>ACTIVE</span>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Add/Update Card Details</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="e.g. MasterCard ending in 9876" 
+                      onChange={(e) => { if(e.target.value) setLinkedCard(e.target.value); }} 
+                    />
+                  </div>
+                </div>
+              )}
+
+              {profileSubTab === 'security' && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex justify-between items-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div>
+                      <span className="text-white font-bold block text-xs">Two-Factor Authentication (2FA)</span>
+                      <span className="text-gray-500 text-xs mt-0.5 block">Secure bookings with temporary code checkouts.</span>
+                    </div>
+                    <button
+                      onClick={() => setTwoFactorAuth(!twoFactorAuth)}
+                      className="font-bold cursor-pointer"
+                      style={{
+                        backgroundColor: twoFactorAuth ? 'var(--color-lime)' : 'rgba(255,255,255,0.1)',
+                        color: twoFactorAuth ? '#000' : '#fff',
+                        border: 'none',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontSize: '10px'
+                      }}
+                    >
+                      {twoFactorAuth ? 'ENABLED' : 'DISABLED'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Update Account Password</label>
+                    <input type="password" placeholder="••••••••" className="form-input" disabled />
+                    <span className="text-gray-500 block mt-1" style={{ fontSize: '9px' }}>OAuth single sign-on managed via Google authentication.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  addNotification("Account profile updated successfully.", "system");
+                }} 
+                className="btn-primary-purple w-full py-2 text-xs"
+              >
+                SAVE & CLOSE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
