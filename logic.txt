@@ -1,0 +1,72 @@
+Project: Experience Marketplace (Bike-Based Platform)
+1. Project Summary
+Build a web-based marketplace that allows hosts to create and sell bike-based experiences using a
+shared inventory of bikes managed by the platform. The system should function similarly to Airbnb
+Experiences, with centralized inventory, calendar-based availability, and tiered pricing.
+2. Core Features to Build
+2.1 User Types
+1 Customers (book experiences)
+2 Hosts (create experiences)
+3 Admin (manage platform, inventory, and bookings)
+2.2 Experience Listings (Host Side)
+1 Create/edit experiences (title, description, duration, price per person, group size)
+2 Select number of bikes required
+3 Set available dates/times via calendar
+2.3 Inventory System
+1 Central pool of bikes (admin-controlled)
+2 Track total available bikes
+3 Deduct bikes when booked
+4 Prevent overbooking
+2.4 Booking & Calendar
+1 Customers can view and book experiences by date/time
+2 Calendar sync across all hosts
+3 Block time slots when bikes are fully reserved
+4 No double-bookings
+2.5 Revenue Model
+Tier 1: Host 70% / Platform 30% / $10 per bike per hour
+Tier 2: Host 85% / Platform 15% / $15 per bike per hour
+Tier 3: Host 100% / Platform 0% / $20 per bike per hour (2-hour minimum)
+1 Apply correct revenue split at checkout
+2 Calculate bike usage fees
+3 Enforce 2-hour minimum for Tier 3
+4 Display host earnings before publishing
+2.6 Payments
+1 Integrate payment processor (e.g., Stripe)
+2 Customer pays upfront
+3 Split payments into platform commission, bike usage fees, and host payout
+2.7 Admin Dashboard
+1 Add/remove bikes
+2 View bookings
+3 Monitor inventory usage
+4 View revenue
+5 Block bikes for maintenance
+2.8 Notifications
+1 Booking confirmations
+2 Booking reminders
+3 Cancellation notifications
+3. Deliverables
+1 Customer-facing marketplace
+2 Host dashboard
+3 Admin panel
+4 Calendar system
+5 Payment integration
+4. Technical Expectations
+1 Mobile-responsive web app
+2 Clean UI
+3 Scalable backend
+5. Priority Order
+Phase 1:
+1 Experience listings
+2 Booking system
+3 Inventory locking
+4 Calendar sync
+5 Basic payments
+Phase 2:
+1 Tiered pricing logic
+2 Admin dashboard
+3 Notifications
+6. Success Criteria
+1 No double-bookings
+2 Accurate bike allocation
+3 Correct revenue calculations
+4 Smooth booking experience
