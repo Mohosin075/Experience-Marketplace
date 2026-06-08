@@ -32,7 +32,8 @@ import {
   ShoppingBag,
   Wrench,
   TrendingUp,
-  Tag
+  Tag,
+  Menu
 } from 'lucide-react';
 
 // --- MOCK INITIAL DATA ---
@@ -165,6 +166,9 @@ export default function App() {
   const [profilePhone, setProfilePhone] = useState("+880 1712-345678");
   const [linkedCard, setLinkedCard] = useState("Visa ending in 4242");
   const [twoFactorAuth, setTwoFactorAuth] = useState(true);
+
+  // Mobile sidebar open state
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const [experiences, setExperiences] = useState(INITIAL_EXPERIENCES);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
@@ -694,6 +698,21 @@ export default function App() {
       {/* --- HEADER --- */}
       <header className="header-wrapper flex items-center justify-between">
         <div className="flex items-center gap-6">
+          {/* Mobile hamburger menu toggler */}
+          <button 
+            onClick={() => setMobileSidebarOpen(true)}
+            className="mobile-only cursor-pointer hover-opacity"
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '8px',
+              padding: '8px 10px',
+              color: '#fff'
+            }}
+          >
+            <Menu size={18} />
+          </button>
+
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveRole('customer'); setActiveCustomerSubTab('explore'); }}>
             <span className="bg-purple text-white font-extrabold text-xs" style={{ padding: '6px 10px', borderRadius: '100px' }}>king</span>
             <div className="flex flex-col">
@@ -702,7 +721,7 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-4 text-xs font-bold" style={{ marginLeft: '16px' }}>
+          <nav className="desktop-only flex items-center gap-4 text-xs font-bold" style={{ marginLeft: '16px' }}>
             <span 
               className="hover-opacity cursor-pointer" 
               style={{ color: activeCustomerSubTab === 'rent' ? 'var(--color-lime)' : 'var(--color-text-secondary)' }}
@@ -728,7 +747,7 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex gap-1 p-1" style={{ backgroundColor: '#02132a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+          <div className="desktop-only flex gap-1 p-1" style={{ backgroundColor: '#02132a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
             <button 
               onClick={() => {
                 setActiveRole('customer');
@@ -2768,6 +2787,203 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MOBILE SIDEBAR DRAWER */}
+      {/* ========================================================================= */}
+      <div 
+        className={`mobile-sidebar-backdrop ${mobileSidebarOpen ? 'open-visible' : ''}`}
+        onClick={() => setMobileSidebarOpen(false)}
+      />
+      <div className={`mobile-sidebar ${mobileSidebarOpen ? 'open' : ''}`}>
+        {/* Header inside drawer */}
+        <div className="flex items-center justify-between pb-4 border-b-line mb-6">
+          <div className="flex items-center gap-2">
+            <span className="bg-purple text-white font-extrabold text-xs" style={{ padding: '4px 8px', borderRadius: '100px' }}>king</span>
+            <span className="text-lg font-extrabold text-white" style={{ letterSpacing: '1px' }}>TOURBI</span>
+          </div>
+          <button 
+            onClick={() => setMobileSidebarOpen(false)}
+            className="cursor-pointer text-gray-400 hover-opacity"
+            style={{ background: 'transparent', border: 'none' }}
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* User Info inside drawer */}
+        <div className="p-3 rounded-xl mb-6 flex items-center gap-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="rounded-circle font-black text-black flex items-center justify-center bg-lime" style={{ width: '32px', height: '32px', fontSize: '12px' }}>
+            {profileName.split(' ').map(n => n[0]).join('')}
+          </div>
+          <div>
+            <span className="text-xs font-bold text-white block">{profileName}</span>
+            <span className="text-gray-500 block text-left" style={{ fontSize: '9px' }}>{profileEmail}</span>
+          </div>
+        </div>
+
+        {/* Section 1: Main tabs */}
+        <div className="flex flex-col gap-2 mb-6 text-left">
+          <span className="text-gray-500 font-bold uppercase block px-2 mb-1" style={{ fontSize: '9px', letterSpacing: '1px' }}>Marketplace Modules</span>
+          
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('explore');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: (activeRole === 'customer' && activeCustomerSubTab === 'explore') ? 'rgba(255,255,255,0.05)' : 'none', 
+              color: (activeRole === 'customer' && activeCustomerSubTab === 'explore') ? 'var(--color-lime)' : 'var(--color-text-secondary)',
+              border: 'none'
+            }}
+          >
+            <Compass size={16} /> EXPLORE EXPERIENCES
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('rent');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: (activeRole === 'customer' && activeCustomerSubTab === 'rent') ? 'rgba(255,255,255,0.05)' : 'none', 
+              color: (activeRole === 'customer' && activeCustomerSubTab === 'rent') ? 'var(--color-lime)' : 'var(--color-text-secondary)',
+              border: 'none'
+            }}
+          >
+            <Bike size={16} /> RENT E-BIKES
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('shop');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: (activeRole === 'customer' && activeCustomerSubTab === 'shop') ? 'rgba(255,255,255,0.05)' : 'none', 
+              color: (activeRole === 'customer' && activeCustomerSubTab === 'shop') ? 'var(--color-lime)' : 'var(--color-text-secondary)',
+              border: 'none'
+            }}
+          >
+            <ShoppingBag size={16} /> SHOP PARTS & GEAR
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('repairs');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: (activeRole === 'customer' && activeCustomerSubTab === 'repairs') ? 'rgba(255,255,255,0.05)' : 'none', 
+              color: (activeRole === 'customer' && activeCustomerSubTab === 'repairs') ? 'var(--color-lime)' : 'var(--color-text-secondary)',
+              border: 'none'
+            }}
+          >
+            <Wrench size={16} /> SERVICE & REPAIRS
+          </button>
+        </div>
+
+        {/* Section 2: Switches */}
+        <div className="flex flex-col gap-2 mb-6 text-left">
+          <span className="text-gray-500 font-bold uppercase block px-2 mb-1" style={{ fontSize: '9px', letterSpacing: '1px' }}>Switch Portals</span>
+          
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('explore');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: activeRole === 'customer' ? 'var(--color-purple)' : 'rgba(255,255,255,0.03)', 
+              color: '#fff',
+              border: 'none'
+            }}
+          >
+            🚲 RIDER PORTAL
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('host');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: activeRole === 'host' ? 'var(--color-orange)' : 'rgba(255,255,255,0.03)', 
+              color: '#fff',
+              border: 'none'
+            }}
+          >
+            ⚡ HOST PORTAL
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('admin');
+            }}
+            className="text-left py-3 px-4 rounded-lg hover-bg font-bold w-full cursor-pointer flex items-center gap-3 text-xs"
+            style={{ 
+              background: activeRole === 'admin' ? 'var(--color-lime)' : 'rgba(255,255,255,0.03)', 
+              color: activeRole === 'admin' ? '#000' : '#fff',
+              border: 'none'
+            }}
+          >
+            🛡️ ADMIN PANEL
+          </button>
+        </div>
+
+        {/* Section 3: Profile Settings & Quick links */}
+        <div className="mt-auto flex flex-col gap-1 border-t-line pt-4 text-left">
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setActiveRole('customer');
+              setActiveCustomerSubTab('my-bookings');
+            }}
+            className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+            style={{ background: 'none', border: 'none' }}
+          >
+            <CalendarCheck size={14} className="text-lime" /> My Bookings & Tickets
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              setProfileSubTab('info');
+              setProfileModalOpen(true);
+            }}
+            className="text-left py-2 px-3 rounded-lg hover-bg text-xs text-gray-300 font-bold w-full cursor-pointer flex items-center gap-2"
+            style={{ background: 'none', border: 'none' }}
+          >
+            <Settings size={14} className="text-purple" /> Settings & Profile
+          </button>
+
+          <button 
+            onClick={() => {
+              setMobileSidebarOpen(false);
+              if (confirm("Are you sure you want to log out of this session?")) {
+                setActiveRole('customer');
+                setActiveCustomerSubTab('explore');
+                addNotification("Logged out successfully.", "system");
+              }
+            }}
+            className="text-left py-2 px-3 rounded-lg hover-bg text-xs font-bold w-full cursor-pointer text-red-400 flex items-center gap-2"
+            style={{ background: 'none', border: 'none' }}
+          >
+            <X size={14} /> Log Out
+          </button>
+        </div>
+      </div>
 
     </div>
   );
