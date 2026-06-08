@@ -28,7 +28,11 @@ import {
   Printer,
   ChevronLeft,
   ChevronRight,
-  CalendarCheck
+  CalendarCheck,
+  ShoppingBag,
+  Wrench,
+  TrendingUp,
+  Tag
 } from 'lucide-react';
 
 // --- MOCK INITIAL DATA ---
@@ -94,6 +98,7 @@ const INITIAL_EXPERIENCES = [
 const INITIAL_BOOKINGS = [
   {
     id: 101,
+    type: "experience", // "experience" | "rental" | "repair"
     experienceId: 2,
     experienceTitle: "Midnight City Lights Cruise",
     date: "2026-06-10",
@@ -110,6 +115,7 @@ const INITIAL_BOOKINGS = [
   },
   {
     id: 102,
+    type: "experience",
     experienceId: 1,
     experienceTitle: "Sunrise E-Bike Brunch Tour",
     date: "2026-06-11",
@@ -132,18 +138,23 @@ const INITIAL_NOTIFICATIONS = [
   { id: 3, text: "Maintenance Alert: Bike #12 marked as 'Under Maintenance'.", time: "45 mins ago", type: "system", read: false }
 ];
 
-// Mock Maintenance Schedule by Date
 const INITIAL_MAINTENANCE = [
   { id: 1, bikeId: 5, date: "2026-06-10", reason: "Brake fluid replacement" },
   { id: 2, bikeId: 12, date: "2026-06-11", reason: "Tire tread damage" },
   { id: 3, bikeId: 18, date: "2026-06-10", reason: "Battery diagnostic alert" }
 ];
 
+const SHOP_PRODUCTS = [
+  { id: 1, title: "Tourbi Cruiser S1 E-Bike", price: 1299, image: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=800&auto=format&fit=crop&q=80", description: "Premium 750W motor electric cruiser with integrated battery and hydraulic disc brakes." },
+  { id: 2, title: "Tourbi Pro Helmet", price: 65, image: "https://images.unsplash.com/photo-1557053910-d9eebed02761?w=800&auto=format&fit=crop&q=80", description: "High-protection safety helmet with integrated LED taillight." },
+  { id: 3, title: "Tourbi Fast Charger 4A", price: 49, image: "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=800&auto=format&fit=crop&q=80", description: "High-speed battery charger compatible with all Tourbi e-bike models." },
+  { id: 4, title: "Heavy Duty U-Lock", price: 35, image: "https://images.unsplash.com/photo-1549492423-400259a2e574?w=800&auto=format&fit=crop&q=80", description: "Double-loop hardened steel lock to secure your bike anywhere." }
+];
+
 export default function App() {
   // --- STATE ---
   const [activeRole, setActiveRole] = useState('customer'); // 'customer' | 'host' | 'admin'
-  const [activeCustomerSubTab, setActiveCustomerSubTab] = useState('explore'); // 'explore' | 'my-bookings'
-  const [comingSoonFeature, setComingSoonFeature] = useState(null);
+  const [activeCustomerSubTab, setActiveCustomerSubTab] = useState('explore'); // 'explore' | 'rent' | 'shop' | 'repairs' | 'my-bookings'
   const [experiences, setExperiences] = useState(INITIAL_EXPERIENCES);
   const [bookings, setBookings] = useState(INITIAL_BOOKINGS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
@@ -154,15 +165,40 @@ export default function App() {
   const [totalBikes, setTotalBikes] = useState(30);
   const [maintenanceSchedule, setMaintenanceSchedule] = useState(INITIAL_MAINTENANCE);
 
-  // Booking Modal State
+  // Booking Modal State (Experiences)
   const [bookingExperience, setBookingExperience] = useState(null);
   const [bookingDate, setBookingDate] = useState("2026-06-10");
   const [bookingTime, setBookingTime] = useState("");
   const [bookingSpots, setBookingSpots] = useState(1);
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [bookingStep, setBookingStep] = useState(1); // 1 = Details/Calendar, 2 = Payment, 3 = Confirmation
-  const [showConfetti, setShowConfetti] = useState(false);
+  const [bookingStep, setBookingStep] = useState(1);
+
+  // Direct Rental State
+  const [rentDate, setRentDate] = useState("2026-06-10");
+  const [rentTime, setRentTime] = useState("10:00");
+  const [rentDuration, setRentDuration] = useState(2);
+  const [rentBikesCount, setRentBikesCount] = useState(1);
+  const [rentCustomerName, setRentCustomerName] = useState("");
+  const [rentCustomerEmail, setRentCustomerEmail] = useState("");
+  const [rentBookingStep, setRentBookingStep] = useState(0); // 0 = Closed, 1 = Checkout, 2 = Success
+
+  // Shop / Purchase State
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [shopCheckoutStep, setShopCheckoutStep] = useState(0); // 0 = Closed, 1 = Checkout, 2 = Success
+  const [shopName, setShopName] = useState("");
+  const [shopEmail, setShopEmail] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+
+  // Repair Scheduling State
+  const [repairBikeBrand, setRepairBikeBrand] = useState("Tourbi");
+  const [repairServiceType, setRepairServiceType] = useState("Brake Tune-up");
+  const [repairDate, setRepairDate] = useState("2026-06-10");
+  const [repairTime, setRepairTime] = useState("10:00");
+  const [repairNotes, setRepairNotes] = useState("");
+  const [repairName, setRepairName] = useState("");
+  const [repairEmail, setRepairEmail] = useState("");
+  const [repairBookingStep, setRepairBookingStep] = useState(0); // 0 = Closed, 1 = Success
 
   // Boarding Pass modal
   const [viewingPassBooking, setViewingPassBooking] = useState(null);
@@ -174,7 +210,7 @@ export default function App() {
   const [newExpPrice, setNewExpPrice] = useState(45);
   const [newExpGroupSize, setNewExpGroupSize] = useState(10);
   const [newExpDescription, setNewExpDescription] = useState("");
-  const [newExpTier, setNewExpTier] = useState(1); // 1, 2, 3
+  const [newExpTier, setNewExpTier] = useState(1);
   const [newExpTimeSlots, setNewExpTimeSlots] = useState(["10:00", "15:00"]);
   const [hostFormError, setHostFormError] = useState("");
 
@@ -217,19 +253,16 @@ export default function App() {
   };
 
   // --- INVENTORY & MAINTENANCE LOCKING UTILITY ---
-  // Calculates how many bikes are blocked/in-maintenance on a specific date
   const getMaintenanceCountForDate = (dateString) => {
     return maintenanceSchedule.filter(m => m.date === dateString).length;
   };
 
-  // Calculates how many bikes are occupied by active bookings on a date + time
   const getOccupiedBikes = (date, time) => {
     return bookings
       .filter(b => b.date === date && b.time === time && b.status === "confirmed")
-      .reduce((sum, b) => sum + b.spots, 0);
+      .reduce((sum, b) => sum + (b.spots || 1), 0);
   };
 
-  // Total available bikes dynamically accounts for both maintenance schedules and booking locks
   const getAvailableBikes = (date, time) => {
     const maintenanceCount = getMaintenanceCountForDate(date);
     const activeFleet = Math.max(0, totalBikes - maintenanceCount);
@@ -272,6 +305,7 @@ export default function App() {
 
     const newBooking = {
       id: Date.now(),
+      type: "experience",
       experienceId: bookingExperience.id,
       experienceTitle: bookingExperience.title,
       date: bookingDate,
@@ -289,19 +323,100 @@ export default function App() {
 
     setBookings(prev => [newBooking, ...prev]);
     addNotification(`New Booking Confirmed: ${customerName} booked '${bookingExperience.title}' (${bookingSpots} spots) for ${bookingDate} at ${bookingTime}`, "booking");
-    
-    // Confetti effect simulation
-    setShowConfetti(true);
     setBookingStep(3);
+  };
+
+  // Direct Rental Action
+  const handleConfirmRental = (e) => {
+    e.preventDefault();
+    if (!rentCustomerName || !rentCustomerEmail) {
+      alert("Please fill all details!");
+      return;
+    }
+
+    const available = getAvailableBikes(rentDate, rentTime);
+    if (rentBikesCount > available) {
+      alert(`Overbooking Error: Only ${available} e-bikes left for renting.`);
+      return;
+    }
+
+    const rentalTotal = rentBikesCount * rentDuration * 15; // flat rate $15/hr
+    const newBooking = {
+      id: Date.now(),
+      type: "rental",
+      experienceTitle: `Direct E-Bike Rental (${rentDuration} Hrs)`,
+      date: rentDate,
+      time: rentTime,
+      spots: rentBikesCount,
+      customerName: rentCustomerName,
+      customerEmail: rentCustomerEmail,
+      totalPaid: rentalTotal,
+      platformFee: rentalTotal,
+      bikeFee: rentalTotal,
+      hostPayout: 0,
+      status: "confirmed",
+      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+    };
+
+    setBookings(prev => [newBooking, ...prev]);
+    addNotification(`New Rental Confirmed: ${rentCustomerName} rented ${rentBikesCount} e-bike(s) for ${rentDuration} hours.`, "system");
+    setRentBookingStep(2);
+  };
+
+  // Product Purchase Action
+  const handleConfirmPurchase = (e) => {
+    e.preventDefault();
+    if (!shopName || !shopEmail || !shopAddress) {
+      alert("Please fill all checkout fields.");
+      return;
+    }
+
+    addNotification(`Product Ordered: ${shopName} purchased '${selectedProduct.title}' for $${selectedProduct.price}.`, "system");
+    setShopCheckoutStep(2);
+  };
+
+  // Repair Scheduling Action
+  const handleConfirmRepair = (e) => {
+    e.preventDefault();
+    if (!repairName || !repairEmail || !repairNotes) {
+      alert("Please fill out your details and repair description.");
+      return;
+    }
+
+    const serviceCharge = repairServiceType === "Brake Tune-up" ? 45 
+                        : repairServiceType === "Flat Tire Patch" ? 25 
+                        : repairServiceType === "Battery Diagnostic" ? 60 
+                        : 120;
+
+    const newBooking = {
+      id: Date.now(),
+      type: "repair",
+      experienceTitle: `Certified Repair: ${repairServiceType} (${repairBikeBrand})`,
+      date: repairDate,
+      time: repairTime,
+      spots: 0,
+      customerName: repairName,
+      customerEmail: repairEmail,
+      totalPaid: serviceCharge,
+      platformFee: serviceCharge,
+      bikeFee: 0,
+      hostPayout: 0,
+      status: "confirmed",
+      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+    };
+
+    setBookings(prev => [newBooking, ...prev]);
+    addNotification(`Repair Scheduled: ${repairName} scheduled a ${repairServiceType} for ${repairDate} at ${repairTime}.`, "system");
+    setRepairBookingStep(1);
   };
 
   const handleCancelBooking = (bookingId) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
 
-    if (window.confirm(`Are you sure you want to cancel your booking for ${booking.experienceTitle}? Your payment will be fully refunded.`)) {
+    if (window.confirm(`Are you sure you want to cancel this booking? Your payment will be fully refunded.`)) {
       setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b));
-      addNotification(`Booking Cancelled: ${booking.customerName} cancelled their slot for '${booking.experienceTitle}' on ${booking.date}`, "booking");
+      addNotification(`Booking Cancelled: ${booking.customerName} cancelled their slot for '${booking.experienceTitle}'`, "booking");
     }
   };
 
@@ -345,7 +460,18 @@ export default function App() {
     alert("Experience created successfully!");
   };
 
-  // Admin add bike to maintenance for specific date
+  const handleAddBike = () => {
+    const newBikeId = totalBikes + 1;
+    setTotalBikes(prev => prev + 1);
+    addNotification(`Admin added Bike #${newBikeId} to the pool. Total: ${totalBikes + 1}`, "system");
+  };
+
+  const handleRemoveBike = () => {
+    if (totalBikes <= 1) return;
+    setTotalBikes(prev => prev - 1);
+    addNotification(`Admin removed Bike #${totalBikes} from the pool. Total: ${totalBikes - 1}`, "system");
+  };
+
   const handleAddMaintenance = (e) => {
     e.preventDefault();
     if (!adminMaintReason) {
@@ -373,18 +499,6 @@ export default function App() {
     addNotification(`Maintenance Cleared: Bike #${scheduled.bikeId} returned to service for ${scheduled.date}`, "system");
   };
 
-  const handleAddBike = () => {
-    const newBikeId = totalBikes + 1;
-    setTotalBikes(prev => prev + 1);
-    addNotification(`Admin added Bike #${newBikeId} to the pool. Total: ${totalBikes + 1}`, "system");
-  };
-
-  const handleRemoveBike = () => {
-    if (totalBikes <= 1) return;
-    setTotalBikes(prev => prev - 1);
-    addNotification(`Admin removed Bike #${totalBikes} from the pool. Total: ${totalBikes - 1}`, "system");
-  };
-
   // --- STATS AND ANALYTICS ---
   const stats = useMemo(() => {
     let totalRevenue = 0;
@@ -403,7 +517,7 @@ export default function App() {
 
     const activeBikesToday = Math.max(0, totalBikes - getMaintenanceCountForDate("2026-06-10"));
     const occupancyRate = bookings.filter(b => b.status === "confirmed").length > 0 
-      ? ((bookings.filter(b => b.status === "confirmed").reduce((s, b) => s + b.spots, 0) / (totalBikes * 5)) * 100).toFixed(1)
+      ? ((bookings.filter(b => b.status === "confirmed").reduce((s, b) => s + (b.spots || 0), 0) / (totalBikes * 5)) * 100).toFixed(1)
       : 0;
 
     return {
@@ -420,11 +534,9 @@ export default function App() {
     categoryFilter === 'All' ? true : exp.category === categoryFilter
   );
 
-  // Dynamic calendar dates for June 2026 grid selector
   const juneDays = Array.from({ length: 30 }, (_, i) => {
     const day = i + 1;
-    const dateString = `2026-06-${day < 10 ? '0' + day : day}`;
-    return dateString;
+    return `2026-06-${day < 10 ? '0' + day : day}`;
   });
 
   return (
@@ -506,7 +618,7 @@ export default function App() {
                 textAlign: 'left',
                 position: 'relative'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
                     <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>TOURBI E-BIKES</span>
                     <h4 className="text-sm font-bold text-white mt-1">{viewingPassBooking.experienceTitle}</h4>
@@ -516,7 +628,7 @@ export default function App() {
 
                 <div className="border-t-line pb-4 pt-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '11px' }}>
                   <div>
-                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Rider Name</span>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Customer Name</span>
                     <span className="text-white font-bold">{viewingPassBooking.customerName}</span>
                   </div>
                   <div>
@@ -528,8 +640,8 @@ export default function App() {
                     <span className="text-white font-bold">{viewingPassBooking.date} @ {viewingPassBooking.time}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Total Reserved Spots</span>
-                    <span className="text-white font-bold">{viewingPassBooking.spots} E-Bike(s)</span>
+                    <span className="text-gray-500 block uppercase" style={{ fontSize: '8px' }}>Reserved Inventory</span>
+                    <span className="text-white font-bold">{viewingPassBooking.spots > 0 ? `${viewingPassBooking.spots} E-Bike(s)` : 'Personal Bike Repair'}</span>
                   </div>
                 </div>
 
@@ -545,7 +657,7 @@ export default function App() {
                     backgroundSize: 'cover',
                     margin: '0 auto'
                   }} />
-                  <span className="text-gray-500 block mt-2" style={{ fontSize: '8px' }}>SCAN QR CODE AT DEPARTURE SITE</span>
+                  <span className="text-gray-500 block mt-2" style={{ fontSize: '8px' }}>SCAN QR CODE AT SERVICE WINDOW</span>
                 </div>
               </div>
 
@@ -568,50 +680,10 @@ export default function App() {
         </div>
       )}
 
-      {/* --- COMING SOON MODAL --- */}
-      {comingSoonFeature && (
-        <div className="modal-backdrop">
-          <div className="modal-content animate-fade-in" style={{ maxWidth: '400px' }}>
-            <div className="modal-header">
-              <h3 className="text-base font-bold text-white">Coming Soon</h3>
-              <button 
-                onClick={() => setComingSoonFeature(null)}
-                className="text-gray-400 hover-opacity cursor-pointer"
-                style={{ background: 'transparent', border: 'none' }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="modal-body text-center" style={{ padding: '24px' }}>
-              <div className="flex items-center justify-center rounded-circle" style={{ 
-                width: '48px', 
-                height: '48px', 
-                backgroundColor: 'rgba(255, 90, 0, 0.12)', 
-                color: 'var(--color-orange)', 
-                margin: '0 auto 16px' 
-              }}>
-                <Sparkles size={24} />
-              </div>
-              <h4 className="text-sm font-bold text-white mb-2">{comingSoonFeature}</h4>
-              <p className="text-xs text-gray-400" style={{ lineHeight: '1.6' }}>
-                This section is currently under development. You can book custom Tourbi e-bike experiences now!
-              </p>
-              <button 
-                onClick={() => setComingSoonFeature(null)}
-                className="btn-primary-orange w-full mt-6 py-2 text-xs"
-              >
-                GOT IT
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* --- HEADER --- */}
       <header className="header-wrapper flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveRole('customer')}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setActiveRole('customer'); setActiveCustomerSubTab('explore'); }}>
             <span className="bg-purple text-white font-extrabold text-xs" style={{ padding: '6px 10px', borderRadius: '100px' }}>king</span>
             <div className="flex flex-col">
               <span className="text-xl font-extrabold text-white" style={{ letterSpacing: '1px' }}>TOURBI</span>
@@ -620,9 +692,27 @@ export default function App() {
           </div>
 
           <nav className="flex items-center gap-4 text-xs font-bold" style={{ marginLeft: '16px' }}>
-            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Direct E-Bike Rentals')}>RENT</span>
-            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Online E-Bike & Merch Store')}>SHOP</span>
-            <span className="text-gray-300 hover-opacity cursor-pointer" onClick={() => setComingSoonFeature('Certified Repairs & Servicing')}>REPAIRS</span>
+            <span 
+              className="hover-opacity cursor-pointer" 
+              style={{ color: activeCustomerSubTab === 'rent' ? 'var(--color-lime)' : 'var(--color-text-secondary)' }}
+              onClick={() => { setActiveRole('customer'); setActiveCustomerSubTab('rent'); }}
+            >
+              RENT
+            </span>
+            <span 
+              className="hover-opacity cursor-pointer" 
+              style={{ color: activeCustomerSubTab === 'shop' ? 'var(--color-lime)' : 'var(--color-text-secondary)' }}
+              onClick={() => { setActiveRole('customer'); setActiveCustomerSubTab('shop'); }}
+            >
+              SHOP
+            </span>
+            <span 
+              className="hover-opacity cursor-pointer" 
+              style={{ color: activeCustomerSubTab === 'repairs' ? 'var(--color-lime)' : 'var(--color-text-secondary)' }}
+              onClick={() => { setActiveRole('customer'); setActiveCustomerSubTab('repairs'); }}
+            >
+              REPAIRS
+            </span>
           </nav>
         </div>
 
@@ -641,8 +731,8 @@ export default function App() {
                 fontSize: '11px',
                 fontWeight: '800',
                 transition: 'all 0.2s',
-                backgroundColor: activeRole === 'customer' ? 'var(--color-purple)' : 'transparent',
-                color: activeRole === 'customer' ? '#fff' : 'var(--color-text-secondary)'
+                backgroundColor: (activeRole === 'customer' && (activeCustomerSubTab === 'explore' || activeCustomerSubTab === 'my-bookings')) ? 'var(--color-purple)' : 'transparent',
+                color: (activeRole === 'customer' && (activeCustomerSubTab === 'explore' || activeCustomerSubTab === 'my-bookings')) ? '#fff' : 'var(--color-text-secondary)'
               }}
             >
               RIDER PORTAL
@@ -704,7 +794,6 @@ export default function App() {
       {activeRole === 'customer' && activeCustomerSubTab === 'explore' && (
         <section className="hero-section">
           <div className="hero-pattern" />
-          
           <div className="container hero-grid relative">
             <div className="flex flex-col gap-4">
               <h1 className="text-5xl font-extrabold text-white uppercase" style={{ lineHeight: '1.1', letterSpacing: '-1px' }}>
@@ -765,7 +854,7 @@ export default function App() {
       <main className="flex-1 container py-10">
 
         {/* ========================================================================= */}
-        {/* CUSTOMER RIDER PORTAL */}
+        {/* CUSTOMER PORTAL */}
         {/* ========================================================================= */}
         {activeRole === 'customer' && (
           <div className="flex flex-col gap-8 animate-fade-in">
@@ -779,10 +868,50 @@ export default function App() {
                   color: activeCustomerSubTab === 'explore' ? '#fff' : 'var(--color-text-secondary)',
                   borderBottom: activeCustomerSubTab === 'explore' ? '2px solid var(--color-purple)' : 'none',
                   borderRadius: '0',
-                  padding: '8px 4px'
+                  padding: '8px 4px',
+                  background: 'none'
                 }}
               >
-                Explore Experiences
+                Experience Marketplace
+              </button>
+              <button 
+                onClick={() => setActiveCustomerSubTab('rent')}
+                className="btn-tab cursor-pointer"
+                style={{
+                  color: activeCustomerSubTab === 'rent' ? '#fff' : 'var(--color-text-secondary)',
+                  borderBottom: activeCustomerSubTab === 'rent' ? '2px solid var(--color-purple)' : 'none',
+                  borderRadius: '0',
+                  padding: '8px 4px',
+                  background: 'none'
+                }}
+              >
+                Direct Bike Rentals
+              </button>
+              <button 
+                onClick={() => setActiveCustomerSubTab('shop')}
+                className="btn-tab cursor-pointer"
+                style={{
+                  color: activeCustomerSubTab === 'shop' ? '#fff' : 'var(--color-text-secondary)',
+                  borderBottom: activeCustomerSubTab === 'shop' ? '2px solid var(--color-purple)' : 'none',
+                  borderRadius: '0',
+                  padding: '8px 4px',
+                  background: 'none'
+                }}
+              >
+                E-Bike Store
+              </button>
+              <button 
+                onClick={() => setActiveCustomerSubTab('repairs')}
+                className="btn-tab cursor-pointer"
+                style={{
+                  color: activeCustomerSubTab === 'repairs' ? '#fff' : 'var(--color-text-secondary)',
+                  borderBottom: activeCustomerSubTab === 'repairs' ? '2px solid var(--color-purple)' : 'none',
+                  borderRadius: '0',
+                  padding: '8px 4px',
+                  background: 'none'
+                }}
+              >
+                Repair Services
               </button>
               <button 
                 onClick={() => setActiveCustomerSubTab('my-bookings')}
@@ -791,7 +920,8 @@ export default function App() {
                   color: activeCustomerSubTab === 'my-bookings' ? '#fff' : 'var(--color-text-secondary)',
                   borderBottom: activeCustomerSubTab === 'my-bookings' ? '2px solid var(--color-purple)' : 'none',
                   borderRadius: '0',
-                  padding: '8px 4px'
+                  padding: '8px 4px',
+                  background: 'none'
                 }}
               >
                 My Bookings & Tickets
@@ -901,18 +1031,311 @@ export default function App() {
               </div>
             )}
 
-            {/* SUBTAB 2: My Bookings & Tickets */}
+            {/* SUBTAB 2: Direct Rentals (Interactive) */}
+            {activeCustomerSubTab === 'rent' && (
+              <div className="grid grid-2">
+                
+                {/* Form parameters */}
+                <div className="glass-panel p-6 flex flex-col gap-6">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-white">Direct E-Bike Rentals</h2>
+                    <p className="text-gray-400 text-xs mt-1">Rent professional electric bikes by the hour from our central fleet pool.</p>
+                  </div>
+
+                  <form onSubmit={(e) => { e.preventDefault(); setRentBookingStep(1); }} className="flex flex-col gap-4">
+                    <div className="grid grid-2">
+                      <div>
+                        <label className="form-label">Rental Date</label>
+                        <input 
+                          type="date" 
+                          className="form-input" 
+                          value={rentDate} 
+                          onChange={(e) => setRentDate(e.target.value)}
+                          min="2026-06-10"
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Start Time</label>
+                        <select className="form-select" value={rentTime} onChange={(e) => setRentTime(e.target.value)}>
+                          {["09:00", "11:00", "13:00", "15:00", "17:00", "19:00"].map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-2">
+                      <div>
+                        <label className="form-label">Duration (Hours)</label>
+                        <select className="form-select" value={rentDuration} onChange={(e) => setRentDuration(parseInt(e.target.value))}>
+                          {[1, 2, 3, 4, 6, 8].map(h => (
+                            <option key={h} value={h}>{h} Hour{h > 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Quantity (Bikes)</label>
+                        <input 
+                          type="number" 
+                          className="form-input" 
+                          min="1" 
+                          max="10" 
+                          value={rentBikesCount} 
+                          onChange={(e) => setRentBikesCount(parseInt(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Customer info fields */}
+                    <div>
+                      <label className="form-label">Full Name</label>
+                      <input 
+                        type="text" 
+                        className="form-input" 
+                        placeholder="John Doe" 
+                        value={rentCustomerName} 
+                        onChange={(e) => setRentCustomerName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Email Address</label>
+                      <input 
+                        type="email" 
+                        className="form-input" 
+                        placeholder="john@example.com" 
+                        value={rentCustomerEmail} 
+                        onChange={(e) => setRentCustomerEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="calc-card p-4 rounded-xl flex flex-col gap-2 mt-2">
+                      <span className="text-gray-500 font-bold uppercase" style={{ fontSize: '9px' }}>Rental Pricing Summary</span>
+                      <div className="flex justify-between text-xs">
+                        <span>Base Rate:</span>
+                        <span className="text-white">$15.00 / hour</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>Total Calculation:</span>
+                        <span className="text-white">{rentBikesCount} bike(s) × {rentDuration} hour(s)</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-bold text-white border-t-line pt-2 mt-2">
+                        <span>Total Cost:</span>
+                        <span className="text-lime">${rentBikesCount * rentDuration * 15}</span>
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary-purple py-3 font-bold mt-2">
+                      CONTINUE TO PAYMENT
+                    </button>
+                  </form>
+                </div>
+
+                {/* Right Column: Fleet occupancy visualizer */}
+                <div className="flex flex-col gap-6">
+                  <div className="glass-panel p-6 text-center flex flex-col gap-4">
+                    <h3 className="text-base font-bold text-white">Live Central Fleet Check</h3>
+                    <p className="text-gray-500 text-xs">Verify if e-bikes are available for direct checkout.</p>
+                    
+                    {(() => {
+                      const av = getAvailableBikes(rentDate, rentTime);
+                      const isOver = rentBikesCount > av;
+                      return (
+                        <div className="flex flex-col items-center gap-3 py-4">
+                          <Bike size={48} className={isOver ? "text-red-500" : "text-lime"} />
+                          <div className="mt-2">
+                            <span className="text-3xl font-black text-white">{av}</span>
+                            <span className="text-xs text-gray-500 block uppercase font-bold mt-1">E-Bikes Free Today</span>
+                          </div>
+
+                          {isOver ? (
+                            <span className="p-2 border text-red-500 font-bold text-xs rounded-lg bg-red-900 bg-opacity-20 border-red-500">
+                              Selected {rentBikesCount} exceeds remaining available pool size ({av}).
+                            </span>
+                          ) : (
+                            <span className="p-2 border text-lime font-bold text-xs rounded-lg bg-emerald-950 bg-opacity-20 border-emerald-800">
+                              Available slots secured ✓
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* SUBTAB 3: E-Bike Store (Interactive) */}
+            {activeCustomerSubTab === 'shop' && (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">Tourbi E-Bike Store</h2>
+                  <p className="text-gray-400 text-xs mt-1">Purchase premium brand electric cruisers and certified accessories.</p>
+                </div>
+
+                <div className="grid grid-4">
+                  {SHOP_PRODUCTS.map(p => (
+                    <div key={p.id} className="glass-panel p-4 flex flex-col justify-between gap-4">
+                      <img src={p.image} className="w-full h-40 rounded-lg" style={{ objectFit: 'cover' }} />
+                      <div>
+                        <span className="text-xs font-bold text-lime uppercase" style={{ fontSize: '9px' }}>Tourbi Shop</span>
+                        <h3 className="text-sm font-bold text-white mt-1">{p.title}</h3>
+                        <p className="text-xs text-gray-500 line-clamp-2 mt-1">{p.description}</p>
+                      </div>
+                      <div className="flex justify-between items-center border-t-line pt-3 mt-1">
+                        <span className="text-base font-black text-white">${p.price}</span>
+                        <button 
+                          onClick={() => {
+                            setSelectedProduct(p);
+                            setShopCheckoutStep(1);
+                            setShopName("");
+                            setShopEmail("");
+                            setShopAddress("");
+                          }}
+                          className="btn-primary-orange py-1 px-3 text-xs"
+                        >
+                          BUY NOW
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* SUBTAB 4: Repair Services (Interactive) */}
+            {activeCustomerSubTab === 'repairs' && (
+              <div className="grid grid-2">
+                
+                {/* Form repair parameters */}
+                <div className="glass-panel p-6 flex flex-col gap-6">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-white">Certified Repair Service</h2>
+                    <p className="text-gray-400 text-xs mt-1">Book repair appointments for your personal e-bike at our workshop.</p>
+                  </div>
+
+                  <form onSubmit={handleConfirmRepair} className="flex flex-col gap-4">
+                    <div className="grid grid-2">
+                      <div>
+                        <label className="form-label">Bike Manufacturer</label>
+                        <select className="form-select" value={repairBikeBrand} onChange={(e) => setRepairBikeBrand(e.target.value)}>
+                          {["Tourbi", "Rad Power", "Lectric", "Aventon", "Super73", "Other"].map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Service Type</label>
+                        <select className="form-select" value={repairServiceType} onChange={(e) => setRepairServiceType(e.target.value)}>
+                          <option value="Brake Tune-up">Brake Tune-up ($45)</option>
+                          <option value="Flat Tire Patch">Flat Tire Patch ($25)</option>
+                          <option value="Battery Diagnostic">Battery Diagnostic ($60)</option>
+                          <option value="Full Overhaul">Full Overhaul ($120)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-2">
+                      <div>
+                        <label className="form-label">Preferred Date</label>
+                        <input 
+                          type="date" 
+                          className="form-input" 
+                          value={repairDate} 
+                          onChange={(e) => setRepairDate(e.target.value)}
+                          min="2026-06-10"
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Time Slot</label>
+                        <select className="form-select" value={repairTime} onChange={(e) => setRepairTime(e.target.value)}>
+                          {["09:00", "11:00", "13:00", "15:00", "17:00"].map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label">Describe Bike Issues</label>
+                      <textarea 
+                        className="form-textarea" 
+                        rows="3" 
+                        placeholder="Please describe issue (e.g. rear brakes squeaking, throttle not engaging...)"
+                        value={repairNotes}
+                        onChange={(e) => setRepairNotes(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-2">
+                      <div>
+                        <label className="form-label">Full Name</label>
+                        <input 
+                          type="text" 
+                          className="form-input" 
+                          value={repairName} 
+                          onChange={(e) => setRepairName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="form-label">Email Address</label>
+                        <input 
+                          type="email" 
+                          className="form-input" 
+                          value={repairEmail} 
+                          onChange={(e) => setRepairEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="btn-primary-orange py-3 font-bold mt-2">
+                      BOOK WORKSHOP APPOINTMENT
+                    </button>
+                  </form>
+                </div>
+
+                {/* Right column placeholder visuals */}
+                <div className="glass-panel p-6 flex flex-col gap-4">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Wrench className="text-orange" size={18} />
+                    Certified Repair Standards
+                  </h3>
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="font-bold text-white block text-xs">1. Expert Mechanics</span>
+                      <span className="text-gray-400 text-xs block mt-1">All repairs are executed by trained mechanics specializing in electric batteries and hub motors.</span>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="font-bold text-white block text-xs">2. Fast turnaround</span>
+                      <span className="text-gray-400 text-xs block mt-1">Minor repairs (tires, brake adjustments) are finished within 2 hours of check-in.</span>
+                    </div>
+                    <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <span className="font-bold text-white block text-xs">3. Centralized tracking</span>
+                      <span className="text-gray-400 text-xs block mt-1">Review status updates and download workshop boarding passes in the Rider Portal.</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* SUBTAB 5: My Bookings & Tickets */}
             {activeCustomerSubTab === 'my-bookings' && (
               <div className="flex flex-col gap-6">
                 <div>
-                  <h2 className="text-xl font-extrabold text-white">My Ride Boarding Passes</h2>
-                  <p className="text-gray-400 text-xs mt-1">Access your boarding passes, verify real-time departure details, or cancel your bookings.</p>
+                  <h2 className="text-xl font-extrabold text-white">My Ride Boarding Passes & Appointments</h2>
+                  <p className="text-gray-400 text-xs mt-1">Access your boarding passes, verify active rentals, or check repair slots.</p>
                 </div>
 
                 {bookings.filter(b => b.status !== 'cancelled').length === 0 ? (
                   <div className="glass-panel p-8 text-center text-gray-500 flex flex-col gap-2 items-center">
                     <CalendarCheck size={36} />
-                    <span>No active boarding tickets found. Book an experience to generate your passes.</span>
+                    <span>No active boarding tickets found. Book a tour, rent a bike, or schedule repairs.</span>
                   </div>
                 ) : (
                   <div className="grid grid-2">
@@ -920,7 +1343,9 @@ export default function App() {
                       <div key={b.id} className="glass-panel p-6 flex flex-col justify-between gap-4 border-l-4 border-l-purple">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>Rider Ticket</span>
+                            <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
+                              {b.type === "rental" ? "Direct Rental" : b.type === "repair" ? "Workshop" : "Experience Ticket"}
+                            </span>
                             <h3 className="text-base font-bold text-white mt-1">{b.experienceTitle}</h3>
                           </div>
                           <span className="text-lime font-bold uppercase" style={{ 
@@ -936,8 +1361,8 @@ export default function App() {
 
                         <div className="grid grid-2 text-xs text-gray-400 border-t-line border-b-line py-3">
                           <div>Ticket Ref: <span className="text-white font-bold">#TRB-{b.id}</span></div>
-                          <div>Spots Reserved: <span className="text-white font-bold">{b.spots} E-Bike(s)</span></div>
-                          <div>Departure: <span className="text-white font-bold">{b.date} @ {b.time}</span></div>
+                          <div>Spots Reserved: <span className="text-white font-bold">{b.spots > 0 ? `${b.spots} E-Bike(s)` : 'Personal Bike Repair'}</span></div>
+                          <div>Departure/Slot: <span className="text-white font-bold">{b.date} @ {b.time}</span></div>
                           <div>Total Charged: <span className="text-white font-bold">${b.totalPaid}</span></div>
                         </div>
 
@@ -953,7 +1378,7 @@ export default function App() {
                             className="btn-outline py-2 text-xs"
                             style={{ color: 'var(--color-error)' }}
                           >
-                            CANCEL RIDE
+                            CANCEL APPOINTMENT
                           </button>
                         </div>
                       </div>
@@ -991,7 +1416,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Interactive Calculator Slider (User-Friendly Highlight) */}
+            {/* Interactive Calculator Slider */}
             <div className="glass-panel p-6 flex flex-col gap-4">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1002,7 +1427,6 @@ export default function App() {
               </div>
 
               <div className="grid grid-3" style={{ gap: '24px' }}>
-                {/* Sliders */}
                 <div className="flex flex-col gap-4">
                   <div>
                     <label className="form-label flex justify-between">
@@ -1035,7 +1459,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Tier Picker */}
                 <div className="flex flex-col gap-2">
                   <label className="form-label">Select Projector Tier</label>
                   <div className="flex flex-col gap-2">
@@ -1058,10 +1481,9 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Outputs card */}
                 <div className="p-4 rounded-xl flex flex-col justify-between" style={{ backgroundColor: '#000c1a', border: '1px solid rgba(255,255,255,0.05)' }}>
                   {(() => {
-                    const duration = 2.0; // Assumed average duration
+                    const duration = 2.0;
                     const calc = calculateRevenue(calcPriceSlider, calcBookingsSlider, duration, calcTierSlider);
                     return (
                       <div className="flex flex-col gap-2">
@@ -1191,10 +1613,8 @@ export default function App() {
                     />
                   </div>
 
-                  {/* REVENUE TIER SELECTOR */}
                   <div className="p-4 rounded-xl flex flex-col gap-4" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <label className="form-label">Select Revenue Tier</label>
-                    
                     <div className="grid grid-3">
                       {[1, 2, 3].map(tierNum => (
                         <div 
@@ -1297,11 +1717,10 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Host Bookings log */}
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white">Bookings Log</h3>
                   <div className="flex flex-col gap-3">
-                    {bookings.map(b => (
+                    {bookings.filter(b => b.type === "experience").map(b => (
                       <div key={b.id} className="p-4 rounded-lg flex flex-col gap-2" style={{ 
                         backgroundColor: 'rgba(255,255,255,0.02)', 
                         border: '1px solid rgba(255,255,255,0.05)',
@@ -1345,7 +1764,6 @@ export default function App() {
         {/* ========================================================================= */}
         {activeRole === 'admin' && (
           <div className="flex flex-col gap-8 animate-fade-in">
-            {/* Stats */}
             <div className="grid grid-4">
               <div className="glass-panel p-4 flex flex-col gap-2">
                 <span className="text-gray-400 font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>TOTAL PLATFORM FEES</span>
@@ -1381,7 +1799,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-2">
-              {/* Fleet List & Maintenance dates manager */}
               <div className="flex flex-col gap-6">
                 <div className="glass-panel p-6 flex flex-col gap-6">
                   <div className="flex justify-between items-center pb-4 border-b-line flex-wrap gap-4">
@@ -1425,7 +1842,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Bike list grid */}
                   <div className="grid grid-6">
                     {Array.from({ length: totalBikes }).map((_, index) => {
                       const bikeId = index + 1;
@@ -1458,7 +1874,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Maintenance date locking manager */}
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1525,7 +1940,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Analytics & System Logs */}
+              {/* Analytics */}
               <div className="flex flex-col gap-6">
                 <div className="glass-panel p-6 flex flex-col gap-4">
                   <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -1583,7 +1998,7 @@ export default function App() {
                       }}>
                         <div>
                           <p className="font-bold text-white">{b.customerName}</p>
-                          <span className="text-gray-500" style={{ fontSize: '10px' }}>{b.experienceTitle} ({b.spots} spots)</span>
+                          <span className="text-gray-500" style={{ fontSize: '10px' }}>{b.experienceTitle} {b.spots > 0 ? `(${b.spots} spots)` : ''}</span>
                         </div>
                         <div className="text-right">
                           <span className="font-bold text-lime" style={{ textDecoration: b.status === 'cancelled' ? 'line-through' : 'none' }}>
@@ -1604,31 +2019,217 @@ export default function App() {
       </main>
 
       {/* ========================================================================= */}
-      {/* BOOKING MODAL & INTERACTIVE CALENDAR GRID */}
+      {/* DIRECT RENTAL CHECKOUT MODAL */}
+      {/* ========================================================================= */}
+      {rentBookingStep === 1 && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h3 className="text-base font-bold text-white">E-Bike Rental Checkout</h3>
+              <button onClick={() => setRentBookingStep(0)} className="text-gray-400 hover-opacity" style={{ background: 'transparent', border: 'none' }}><X size={18} /></button>
+            </div>
+
+            <div className="modal-body flex flex-col gap-4">
+              <div className="calc-card p-4 rounded-xl flex flex-col gap-2">
+                <span className="text-orange font-bold uppercase" style={{ fontSize: '9px' }}>Platform Direct Rental Invoice</span>
+                <div className="flex justify-between text-xs">
+                  <span>E-Bikes:</span>
+                  <span className="text-white">{rentBikesCount} Bike(s)</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Schedule:</span>
+                  <span className="text-white">{rentDate} at {rentTime}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span>Duration:</span>
+                  <span className="text-white">{rentDuration} hour(s)</span>
+                </div>
+                <div className="border-t-line pt-2 mt-2 flex justify-between font-bold text-white">
+                  <span>Total Bill (Rider Pays):</span>
+                  <span className="text-lime">${rentBikesCount * rentDuration * 15}</span>
+                </div>
+              </div>
+
+              {/* Simulated Card checkout */}
+              <div className="p-4 rounded-xl flex flex-col gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-xs font-bold text-gray-400 uppercase">Stripe Checkout Simulator</span>
+                <div>
+                  <label className="form-label">Card Number</label>
+                  <input type="text" className="form-input" defaultValue="4242424242424242" />
+                </div>
+                <div className="grid grid-2">
+                  <div>
+                    <label className="form-label">Expiry</label>
+                    <input type="text" className="form-input" defaultValue="12/28" />
+                  </div>
+                  <div>
+                    <label className="form-label">CVC</label>
+                    <input type="password" className="form-input" defaultValue="123" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button onClick={() => setRentBookingStep(0)} className="btn-outline">CANCEL</button>
+              <button onClick={handleConfirmRental} className="btn-primary-purple">CONFIRM & RENT</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RENTAL SUCCESS MODAL */}
+      {rentBookingStep === 2 && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className="modal-body py-6 flex flex-col gap-4">
+              <div className="flex items-center justify-center rounded-circle text-lime" style={{ 
+                padding: '12px', width: '64px', height: '64px', margin: '0 auto',
+                backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' 
+              }}>
+                <CheckCircle2 size={40} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Rental Reserved!</h3>
+                <p className="text-xs text-gray-400 mt-2">Your electric bikes are locked and prepared. Grab your passes in **My Bookings**.</p>
+              </div>
+              <button 
+                onClick={() => { setRentBookingStep(0); setActiveCustomerSubTab('my-bookings'); }} 
+                className="btn-primary-purple w-full mt-4"
+              >
+                GO TO MY TICKETS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PRODUCT CHECKOUT MODAL */}
+      {/* ========================================================================= */}
+      {shopCheckoutStep === 1 && selectedProduct && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h3 className="text-base font-bold text-white">Product Checkout</h3>
+              <button onClick={() => setShopCheckoutStep(0)} className="text-gray-400 hover-opacity" style={{ background: 'transparent', border: 'none' }}><X size={18} /></button>
+            </div>
+
+            <form onSubmit={handleConfirmPurchase} className="modal-body flex flex-col gap-4">
+              <div className="p-3 rounded-lg flex gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <img src={selectedProduct.image} className="w-16 h-16 rounded" style={{ objectFit: 'cover' }} />
+                <div>
+                  <h4 className="text-xs font-bold text-white">{selectedProduct.title}</h4>
+                  <span className="text-lime font-black text-sm block mt-1">${selectedProduct.price}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label">Full Name</label>
+                <input type="text" className="form-input" value={shopName} onChange={(e) => setShopName(e.target.value)} required />
+              </div>
+              <div>
+                <label className="form-label">Email Address</label>
+                <input type="email" className="form-input" value={shopEmail} onChange={(e) => setShopEmail(e.target.value)} required />
+              </div>
+              <div>
+                <label className="form-label">Delivery Address</label>
+                <input type="text" className="form-input" placeholder="123 Main St, Washington DC" value={shopAddress} onChange={(e) => setShopAddress(e.target.value)} required />
+              </div>
+
+              <div className="p-4 rounded-xl flex flex-col gap-2" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-xs font-bold text-gray-500 uppercase">Secure Payment splits</span>
+                {(() => {
+                  const platShare = selectedProduct.price * 0.10; // 10% platform share
+                  const supplierShare = selectedProduct.price * 0.90; // 90% supplier
+                  return (
+                    <div className="flex flex-col gap-1 text-xs text-gray-400">
+                      <div className="flex justify-between">
+                        <span>Supplier share:</span>
+                        <span>${supplierShare.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Platform fee (10%):</span>
+                        <span>${platShare.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="modal-footer" style={{ padding: '16px 0 0' }}>
+                <button type="button" onClick={() => setShopCheckoutStep(0)} className="btn-outline">CANCEL</button>
+                <button type="submit" className="btn-primary-orange">PAY & SECURE ORDER</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* SHOP SUCCESS MODAL */}
+      {shopCheckoutStep === 2 && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className="modal-body py-6 flex flex-col gap-4">
+              <div className="flex items-center justify-center rounded-circle text-lime" style={{ 
+                padding: '12px', width: '64px', height: '64px', margin: '0 auto',
+                backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' 
+              }}>
+                <CheckCircle2 size={40} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Order Confirmed!</h3>
+                <p className="text-xs text-gray-400 mt-2">Your payment has been split and processed. Delivery details sent to **{shopEmail}**.</p>
+              </div>
+              <button onClick={() => setShopCheckoutStep(0)} className="btn-primary-purple w-full mt-4">DONE</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* REPAIR SUCCESS MODAL */}
+      {/* ========================================================================= */}
+      {repairBookingStep === 1 && (
+        <div className="modal-backdrop">
+          <div className="modal-content animate-fade-in" style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className="modal-body py-6 flex flex-col gap-4">
+              <div className="flex items-center justify-center rounded-circle text-lime" style={{ 
+                padding: '12px', width: '64px', height: '64px', margin: '0 auto',
+                backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' 
+              }}>
+                <CheckCircle2 size={40} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Appointment Scheduled!</h3>
+                <p className="text-xs text-gray-400 mt-2">Workshop slot has been locked for your bike repair. Ticket available under **My Bookings**.</p>
+              </div>
+              <button 
+                onClick={() => { setRepairBookingStep(0); setActiveCustomerSubTab('my-bookings'); }} 
+                className="btn-primary-purple w-full mt-4"
+              >
+                GO TO MY TICKETS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* EXPERIENCE BOOKING MODAL */}
       {/* ========================================================================= */}
       {bookingExperience && (
         <div className="modal-backdrop">
           <div className="modal-content animate-fade-in">
-            
-            {/* Modal Header */}
             <div className="modal-header">
               <div>
                 <span className="text-orange font-bold uppercase" style={{ fontSize: '9px', letterSpacing: '1px' }}>SECURE BOOKING SYSTEM</span>
                 <h3 className="text-base font-bold text-white mt-0.5">{bookingExperience.title}</h3>
               </div>
-              <button 
-                onClick={() => setBookingExperience(null)}
-                className="text-gray-400 hover-opacity cursor-pointer"
-                style={{ background: 'transparent', border: 'none' }}
-              >
-                <X size={18} />
-              </button>
+              <button onClick={() => setBookingExperience(null)} className="text-gray-400 hover-opacity cursor-pointer" style={{ background: 'transparent', border: 'none' }}><X size={18} /></button>
             </div>
 
-            {/* Modal Body */}
             <div className="modal-body flex flex-col gap-6">
-              
-              {/* Steps indicators */}
               <div className="flex justify-center items-center gap-2 text-xs font-bold border-b-line pb-4">
                 <span className="px-2 py-1 rounded" style={{
                   backgroundColor: bookingStep >= 1 ? 'var(--color-purple)' : 'rgba(255,255,255,0.03)',
@@ -1646,20 +2247,13 @@ export default function App() {
                 }}>3. CONFIRMATION</span>
               </div>
 
-              {/* STEP 1: Details and Visual Inventory Calendar Grid */}
               {bookingStep === 1 && (
                 <div className="grid grid-2">
-                  
-                  {/* Left Column: Form Controls */}
                   <div className="flex flex-col gap-4">
                     <div className="grid grid-2">
                       <div>
                         <label className="form-label">Select Time Slot</label>
-                        <select 
-                          className="form-select"
-                          value={bookingTime}
-                          onChange={(e) => setBookingTime(e.target.value)}
-                        >
+                        <select className="form-select" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)}>
                           <option value="">Choose slot...</option>
                           {bookingExperience.timeSlots.map(slot => (
                             <option key={slot} value={slot}>{slot}</option>
@@ -1680,27 +2274,14 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Customer Info */}
                     <div className="flex flex-col gap-3">
                       <div>
                         <label className="form-label">Full Name</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          placeholder="John Doe"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                        />
+                        <input type="text" className="form-input" placeholder="John Doe" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
                       </div>
                       <div>
                         <label className="form-label">Email Address</label>
-                        <input 
-                          type="email" 
-                          className="form-input" 
-                          placeholder="john@example.com"
-                          value={customerEmail}
-                          onChange={(e) => setCustomerEmail(e.target.value)}
-                        />
+                        <input type="email" className="form-input" placeholder="john@example.com" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} />
                       </div>
                     </div>
 
@@ -1708,12 +2289,7 @@ export default function App() {
                       <div className="p-4 text-xs flex flex-col gap-2" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}>
                         <span className="font-bold text-white uppercase" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>Cost Breakdown Preview</span>
                         {(() => {
-                          const breakdown = calculateRevenue(
-                            bookingExperience.price,
-                            bookingSpots,
-                            bookingExperience.duration,
-                            bookingExperience.tier
-                          );
+                          const breakdown = calculateRevenue(bookingExperience.price, bookingSpots, bookingExperience.duration, bookingExperience.tier);
                           return (
                             <div className="flex flex-col gap-1 text-gray-400">
                               <div className="flex justify-between">
@@ -1735,16 +2311,9 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Right Column: Visual Calendar Grid Picker */}
                   <div className="flex flex-col gap-3">
                     <label className="form-label text-center">Select Date (June 2026)</label>
-                    
-                    <div style={{
-                      backgroundColor: 'rgba(0,12,26,0.5)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      borderRadius: '12px',
-                      padding: '12px'
-                    }}>
+                    <div style={{ backgroundColor: 'rgba(0,12,26,0.5)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '12px' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '8px' }}>
                         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
                           <span key={d} className="text-gray-500 font-bold text-center" style={{ fontSize: '9px' }}>{d}</span>
@@ -1752,7 +2321,6 @@ export default function App() {
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
-                        {/* Fill empty spaces for June starting on Monday */}
                         <div />
                         {juneDays.map((dateStr, idx) => {
                           const dayNum = idx + 1;
@@ -1764,47 +2332,17 @@ export default function App() {
                           return (
                             <div 
                               key={dateStr}
-                              onClick={() => {
-                                if (!isFullyBooked && !isMaintLock) {
-                                  setBookingDate(dateStr);
-                                }
-                              }}
-                              className="cursor-pointer"
+                              onClick={() => { if (!isFullyBooked && !isMaintLock) setBookingDate(dateStr); }}
                               style={{
-                                aspectRatio: '1',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '4px 2px',
-                                backgroundColor: isSelected 
-                                  ? 'var(--color-orange)' 
-                                  : isMaintLock 
-                                    ? 'rgba(239,68,68,0.1)' 
-                                    : isFullyBooked 
-                                      ? 'rgba(239,68,68,0.05)' 
-                                      : 'rgba(255,255,255,0.03)',
-                                border: isSelected 
-                                  ? '1px solid var(--color-orange)' 
-                                  : isFullyBooked || isMaintLock
-                                    ? '1px dashed rgba(239,68,68,0.3)'
-                                    : '1px solid rgba(255,255,255,0.05)',
-                                color: isSelected 
-                                  ? '#000' 
-                                  : isFullyBooked || isMaintLock
-                                    ? 'var(--color-text-muted)'
-                                    : '#fff',
-                                opacity: isFullyBooked || isMaintLock ? '0.4' : '1',
-                                pointerEvents: isFullyBooked || isMaintLock ? 'none' : 'auto'
+                                aspectRatio: '1', borderRadius: '4px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', padding: '4px 2px',
+                                backgroundColor: isSelected ? 'var(--color-orange)' : isMaintLock ? 'rgba(239,68,68,0.1)' : isFullyBooked ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.03)',
+                                border: isSelected ? '1px solid var(--color-orange)' : isFullyBooked || isMaintLock ? '1px dashed rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                                color: isSelected ? '#000' : isFullyBooked || isMaintLock ? 'var(--color-text-muted)' : '#fff',
+                                opacity: isFullyBooked || isMaintLock ? '0.4' : '1', pointerEvents: isFullyBooked || isMaintLock ? 'none' : 'auto', cursor: 'pointer'
                               }}
                             >
                               <span style={{ fontSize: '9px', fontWeight: '800' }}>{dayNum}</span>
-                              <span style={{ 
-                                fontSize: '7px', 
-                                fontWeight: '700',
-                                color: isSelected ? '#000' : isFullyBooked ? 'var(--color-error)' : 'var(--color-lime)' 
-                              }}>
+                              <span style={{ fontSize: '7px', fontWeight: '700', color: isSelected ? '#000' : isFullyBooked ? 'var(--color-error)' : 'var(--color-lime)' }}>
                                 {isMaintLock ? 'LOCK' : isFullyBooked ? 'FULL' : `${available} left`}
                               </span>
                             </div>
@@ -1812,44 +2350,16 @@ export default function App() {
                         })}
                       </div>
                     </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '9px', color: 'var(--color-text-secondary)', marginTop: '4px' }}>
-                      <div className="flex items-center gap-1">
-                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', display: 'inline-block' }} />
-                        <span>Available</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'var(--color-orange)', display: 'inline-block' }} />
-                        <span>Selected</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px dashed rgba(239,68,68,0.3)', display: 'inline-block' }} />
-                        <span>Fully Booked</span>
-                      </div>
-                    </div>
                   </div>
-
                 </div>
               )}
 
-              {/* STEP 2: Secure Payment split logic screen */}
               {bookingStep === 2 && (
                 <div className="flex flex-col gap-6">
-                  
-                  {/* Split calculator breakdown card */}
                   <div className="glass-panel p-6 flex flex-col gap-4" style={{ borderLeft: '4px solid var(--color-orange)' }}>
-                    <h4 className="text-base font-bold text-white flex items-center gap-2">
-                      <DollarSign className="text-orange" size={18} />
-                      Marketplace Payment Split Breakdown
-                    </h4>
-
+                    <h4 className="text-base font-bold text-white flex items-center gap-2"><DollarSign className="text-orange" size={18} />Marketplace Payment Split Breakdown</h4>
                     {(() => {
-                      const breakdown = calculateRevenue(
-                        bookingExperience.price,
-                        bookingSpots,
-                        bookingExperience.duration,
-                        bookingExperience.tier
-                      );
+                      const breakdown = calculateRevenue(bookingExperience.price, bookingSpots, bookingExperience.duration, bookingExperience.tier);
                       return (
                         <div className="flex flex-col gap-4">
                           <div className="grid grid-3 pb-4 border-b-line text-center">
@@ -1869,193 +2379,93 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Specific split itemizations */}
                           <div className="flex flex-col gap-2 text-xs text-gray-400">
                             <div className="flex justify-between">
                               <span>Total Ticket base revenue ({bookingSpots} x ${bookingExperience.price}):</span>
-                              <span className="text-white">${breakdown.ticketRevenue.toFixed(2)}</span>
+                              <span>${breakdown.ticketRevenue.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span>Platform Commission cut ({bookingExperience.tier === 1 ? '30%' : bookingExperience.tier === 2 ? '15%' : '0%'}):</span>
-                              <span className="text-white">${breakdown.platformFee.toFixed(2)}</span>
+                              <span>${breakdown.platformFee.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span>Bike Rental Pool Usage Fee (${bookingExperience.tier === 1 ? 10 : bookingExperience.tier === 2 ? 15 : 20}/hr per e-bike):</span>
-                              <span className="text-white">${breakdown.bikeFee.toFixed(2)}</span>
+                              <span>${breakdown.bikeFee.toFixed(2)}</span>
                             </div>
                           </div>
-                          
-                          <p className="border-t-line pt-2 mt-2 text-gray-500" style={{ fontSize: '9px', lineHeight: '1.4' }}>
-                            *Split Payment Security: Stripe will divide the transaction automatically. Host Payout is sent directly to your connected bank account. Platform commission & bike usage fee are routed to the platform vault.
-                          </p>
                         </div>
                       );
                     })()}
                   </div>
 
-                  {/* Simulated credit card forms */}
-                  <div className="p-4 rounded-xl flex flex-col gap-4" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="p-4 rounded-xl flex flex-col gap-3" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                     <span className="text-xs font-bold text-gray-400 tracking-wider uppercase block">Simulate Stripe Checkout</span>
-                    
                     <div className="flex flex-col gap-3">
                       <div>
                         <label className="form-label">Card Number</label>
-                        <input 
-                          type="text" 
-                          className="form-input" 
-                          placeholder="4242 4242 4242 4242 (Simulated Test Card)"
-                          defaultValue="4242424242424242"
-                        />
+                        <input type="text" className="form-input" defaultValue="4242424242424242" />
                       </div>
-
                       <div className="grid grid-2">
                         <div>
                           <label className="form-label">Expiration Date</label>
-                          <input type="text" className="form-input" placeholder="MM/YY" defaultValue="12/28" />
+                          <input type="text" className="form-input" defaultValue="12/28" />
                         </div>
                         <div>
                           <label className="form-label">CVC</label>
-                          <input type="password" className="form-input" placeholder="•••" defaultValue="123" />
+                          <input type="password" className="form-input" defaultValue="123" />
                         </div>
                       </div>
                     </div>
                   </div>
-
                 </div>
               )}
 
-              {/* STEP 3: Confirm Booking details */}
               {bookingStep === 3 && (
                 <div className="text-center py-6 flex flex-col gap-4">
                   <div className="flex items-center justify-center rounded-circle text-lime" style={{ 
-                    padding: '12px', 
-                    width: '64px', 
-                    height: '64px',
-                    margin: '0 auto',
-                    backgroundColor: 'rgba(16,185,129,0.1)', 
-                    border: '1px solid rgba(16,185,129,0.2)' 
+                    padding: '12px', width: '64px', height: '64px', margin: '0 auto',
+                    backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' 
                   }}>
                     <CheckCircle2 size={40} />
                   </div>
-                  
-                  <div className="flex flex-col gap-2">
+                  <div>
                     <h3 className="text-xl font-black text-white">Booking Confirmed!</h3>
-                    <p className="text-xs text-gray-400" style={{ maxWidth: '380px', margin: '0 auto', lineHeight: '1.6' }}>
-                      Thank you! Your e-bike inventory has been locked. You can view your boarding tickets in the **My Bookings** tab.
-                    </p>
-                  </div>
-
-                  <div className="p-4 text-xs flex flex-col gap-2 text-left" style={{ 
-                    maxWidth: '400px', 
-                    margin: '16px auto 0',
-                    backgroundColor: 'rgba(255,255,255,0.02)', 
-                    border: '1px solid rgba(255,255,255,0.05)',
-                    borderRadius: '12px' 
-                  }}>
-                    <div className="flex justify-between border-b-line pb-2">
-                      <span className="text-gray-500">Rider:</span>
-                      <span className="font-bold text-white">{customerName}</span>
-                    </div>
-                    <div className="flex justify-between border-b-line pb-2">
-                      <span className="text-gray-500">Experience:</span>
-                      <span className="font-bold text-white">{bookingExperience.title}</span>
-                    </div>
-                    <div className="flex justify-between border-b-line pb-2">
-                      <span className="text-gray-500">Date/Time:</span>
-                      <span className="font-bold text-white">{bookingDate} @ {bookingTime}</span>
-                    </div>
-                    <div className="flex justify-between border-b-line pb-2">
-                      <span className="text-gray-500">Spots Booked:</span>
-                      <span className="font-bold text-white">{bookingSpots} Electric Bike(s)</span>
-                    </div>
-                    <div className="flex justify-between pt-1">
-                      <span className="text-gray-500 font-bold">Total Paid:</span>
-                      <span className="font-bold text-lime">
-                        ${(() => {
-                          const breakdown = calculateRevenue(
-                            bookingExperience.price,
-                            bookingSpots,
-                            bookingExperience.duration,
-                            bookingExperience.tier
-                          );
-                          return breakdown.totalPaid.toFixed(2);
-                        })()}
-                      </span>
-                    </div>
+                    <p className="text-xs text-gray-400 mt-2">Thank you! Your e-bike inventory has been locked. You can view your boarding tickets in **My Bookings**.</p>
                   </div>
                 </div>
               )}
-
             </div>
 
-            {/* Modal Footer actions */}
             <div className="modal-footer">
               {bookingStep === 1 && (
                 <>
-                  <button 
-                    onClick={() => setBookingExperience(null)}
-                    className="btn-outline cursor-pointer"
-                    style={{ padding: '8px 16px', fontSize: '11px' }}
-                  >
-                    CANCEL
-                  </button>
+                  <button onClick={() => setBookingExperience(null)} className="btn-outline">CANCEL</button>
                   <button 
                     onClick={() => {
                       if (!customerName || !customerEmail || !bookingTime) {
-                        alert("Please fill out all rider information and select a time slot.");
+                        alert("Please fill out all rider information.");
                         return;
                       }
-                      
-                      const available = getAvailableBikes(bookingDate, bookingTime);
-                      if (bookingSpots > available) {
-                        alert(`Overbooking Error: Only ${available} electric bikes available for this slot.`);
-                        return;
-                      }
-
                       setBookingStep(2);
-                    }}
-                    className="btn-primary-purple cursor-pointer"
-                    style={{ padding: '8px 16px', fontSize: '11px' }}
+                    }} 
+                    className="btn-primary-purple"
                   >
-                    CONTINUE TO CHECKOUT
-                    <ArrowRight size={12} />
+                    CONTINUE TO CHECKOUT <ArrowRight size={12} />
                   </button>
                 </>
               )}
 
               {bookingStep === 2 && (
                 <>
-                  <button 
-                    onClick={() => setBookingStep(1)}
-                    className="btn-outline cursor-pointer"
-                    style={{ padding: '8px 16px', fontSize: '11px' }}
-                  >
-                    BACK
-                  </button>
-                  <button 
-                    onClick={handleConfirmBooking}
-                    className="btn-primary-orange cursor-pointer"
-                    style={{ padding: '8px 16px', fontSize: '11px' }}
-                  >
-                    PAY & LOCK INVENTORY
-                  </button>
+                  <button onClick={() => setBookingStep(1)} className="btn-outline">BACK</button>
+                  <button onClick={handleConfirmBooking} className="btn-primary-orange">PAY & LOCK INVENTORY</button>
                 </>
               )}
 
               {bookingStep === 3 && (
-                <button 
-                  onClick={() => {
-                    setBookingExperience(null);
-                    setActiveCustomerSubTab('my-bookings');
-                  }}
-                  className="btn-primary-purple cursor-pointer"
-                  style={{ padding: '8px 24px', fontSize: '11px' }}
-                >
-                  VIEW MY TICKETS
-                </button>
+                <button onClick={() => { setBookingExperience(null); setActiveCustomerSubTab('my-bookings'); }} className="btn-primary-purple">VIEW MY TICKETS</button>
               )}
             </div>
-
           </div>
         </div>
       )}
@@ -2063,38 +2473,25 @@ export default function App() {
       {/* --- FOOTER --- */}
       <footer className="py-12 border-t-line" style={{ backgroundColor: '#000814', marginTop: 'auto' }}>
         <div className="container grid grid-4">
-          
           <div className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <span className="bg-purple text-white font-extrabold text-xs" style={{ padding: '4px 8px', borderRadius: '100px' }}>king</span>
               <span className="text-base font-extrabold text-white" style={{ letterSpacing: '1px' }}>TOURBI</span>
             </div>
-            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>
-              Building unforgettable moments and real connections in DC. Be part of the movement.
-            </p>
+            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>Building unforgettable moments and real connections. Be part of the movement.</p>
           </div>
-
           <div className="flex flex-col gap-3">
             <h5 className="font-bold text-white text-xs" style={{ letterSpacing: '1px' }}>TOP QUALITY E-BIKES</h5>
-            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>
-              Reliable, powerful, and fun to ride. We maintain the highest standards of safety.
-            </p>
+            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>Reliable, powerful, and fun. We maintain the highest standards of safety.</p>
           </div>
-
           <div className="flex flex-col gap-3">
             <h5 className="font-bold text-white text-xs" style={{ letterSpacing: '1px' }}>SAFE & RELIABLE</h5>
-            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>
-              Safety first. Always. All trips are monitored and covered by platform policies.
-            </p>
+            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>Safety first. Always. All trips are monitored and covered by platform policies.</p>
           </div>
-
           <div className="flex flex-col gap-3">
             <h5 className="font-bold text-white text-xs" style={{ letterSpacing: '1px' }}>LOCAL VIBES</h5>
-            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>
-              Real people. Real places. Real memories. Experience the city like a local.
-            </p>
+            <p className="text-gray-500 text-xs" style={{ lineHeight: '1.6' }}>Real people. Real places. Real memories. Experience the city like a local.</p>
           </div>
-
         </div>
 
         <div className="container border-t-line" style={{ marginTop: '32px', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', fontSize: '11px', color: 'var(--color-text-muted)' }}>
